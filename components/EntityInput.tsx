@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { useGraphStore } from '@/store/graphStore';
 import { ExtractionResult } from '@/types/graph';
-import { emitNodeUpdate, emitEdgeUpdate } from '@/lib/ws/client';
+import { emitNodeAdded, emitEdgeAdded } from '@/lib/ws/client';
 import { motion } from 'framer-motion';
 
 interface EntityInputProps {
@@ -42,16 +42,16 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
 
       const result = (await response.json()) as ExtractionResult;
 
-      // Add extracted nodes
+      // Add extracted nodes and broadcast each as a new addition
       result.nodes.forEach((node) => {
         addNode(node);
-        emitNodeUpdate(node);
+        emitNodeAdded(node);
       });
 
-      // Add extracted edges
+      // Add extracted edges and broadcast each as a new addition
       result.edges.forEach((edge) => {
         addEdge(edge);
-        emitEdgeUpdate(edge);
+        emitEdgeAdded(edge);
       });
 
       setInput('');

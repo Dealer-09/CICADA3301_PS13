@@ -5,15 +5,19 @@ let socket: Socket | null = null;
 
 interface SyncHandler {
   onNodeUpdate: (node: GraphNode) => void;
+  onNodeAdded: (node: GraphNode) => void;
   onEdgeUpdate: (edge: GraphEdge) => void;
+  onEdgeAdded: (edge: GraphEdge) => void;
   onRemoteMessage: (message: RealtimeSyncMessage) => void;
   onConnect: () => void;
   onDisconnect: () => void;
+  onUsersOnline: (count: number) => void;
 }
 
 export function initializeWebSocket(
   url?: string,
-  handlers: Partial<SyncHandler> = {}
+  handlers: Partial<SyncHandler> = {},
+  userId?: string
 ): Socket {
   if (socket) {
     return socket;
@@ -29,8 +33,10 @@ export function initializeWebSocket(
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
-    reconnectionAttempts: 5,
+    reconnectionAttempts: 10,
     transports: ["websocket", "polling"],
+    // Pass userId so the server can identify and log this client
+    query: { userId: userId || "anonymous" },
   });
 
   socket.on("connect", () => {
@@ -43,19 +49,33 @@ export function initializeWebSocket(
     handlers.onDisconnect?.();
   });
 
+  // node_update — a remote user moved/edited an existing node
   socket.on("node_update", (node: GraphNode) => {
-    console.log("Node update received:", node);
     handlers.onNodeUpdate?.(node);
   });
 
+  // node_added — a remote user extracted new nodes
+  socket.on("node_added", (node: GraphNode) => {
+    handlers.onNodeAdded?.(node);
+  });
+
+  // edge_update — a remote user updated an existing edge
   socket.on("edge_update", (edge: GraphEdge) => {
-    console.log("Edge update received:", edge);
     handlers.onEdgeUpdate?.(edge);
   });
 
+  // edge_added — a remote user created a new edge
+  socket.on("edge_added", (edge: GraphEdge) => {
+    handlers.onEdgeAdded?.(edge);
+  });
+
   socket.on("sync_message", (message: RealtimeSyncMessage) => {
-    console.log("Sync message received:", message);
     handlers.onRemoteMessage?.(message);
+  });
+
+  // Online user count badge
+  socket.on("users_online", (count: number) => {
+    handlers.onUsersOnline?.(count);
   });
 
   socket.on("error", (error) => {
@@ -82,9 +102,23 @@ export function emitNodeUpdate(node: GraphNode): void {
   }
 }
 
+/** Use this when broadcasting a brand-new node (extraction result) */
+export function emitNodeAdded(node: GraphNode): void {
+  if (socket && socket.connected) {
+    socket.emit("node_added", node);
+  }
+}
+
 export function emitEdgeUpdate(edge: GraphEdge): void {
   if (socket && socket.connected) {
     socket.emit("edge_update", edge);
+  }
+}
+
+/** Use this when broadcasting a brand-new edge (extraction result or manual connect) */
+export function emitEdgeAdded(edge: GraphEdge): void {
+  if (socket && socket.connected) {
+    socket.emit("edge_added", edge);
   }
 }
 
@@ -93,3 +127,4 @@ export function emitSyncMessage(message: RealtimeSyncMessage): void {
     socket.emit("sync_message", message);
   }
 }
+

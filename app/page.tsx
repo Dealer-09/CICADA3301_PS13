@@ -20,6 +20,8 @@ const GraphCanvas = dynamic(() => import('@/components/GraphCanvas'), {
 
 export default function KnowledgeGraphPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [usersOnline, setUsersOnline] = useState(1);
+  const [wsConnected, setWsConnected] = useState(false);
   const { nodes, edges, setGraphState, applyRemoteUpdate } = useGraphStore();
   const stats = useMemo(
     () => ({ nodeCount: nodes.length, edgeCount: edges.length }),
@@ -27,39 +29,78 @@ export default function KnowledgeGraphPage() {
   );
 
   useEffect(() => {
-    // Initialize WebSocket for real-time sync
-    initializeWebSocket(undefined, {
-      onConnect: () => {
-        console.log('Connected to WebSocket');
-        // Load initial graph state
-        fetch('/api/graph')
-          .then((res) => res.json())
-          .then((data) => {
-            setGraphState(data);
-          })
-          .catch((error) => console.error('Failed to load graph:', error));
+    // Derive a stable session userId (persisted in sessionStorage)
+    const userId =
+      (typeof window !== 'undefined' && sessionStorage.getItem('knowledgeUserId')) ||
+      `user-${Math.random().toString(36).slice(2, 8)}`;
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('knowledgeUserId', userId);
+    }
+
+    initializeWebSocket(
+      undefined,
+      {
+        onConnect: () => {
+          setWsConnected(true);
+          console.log('Connected to WebSocket');
+          // Load initial graph state from Neo4j
+          fetch('/api/graph')
+            .then((res) => res.json())
+            .then((data) => {
+              setGraphState(data);
+            })
+            .catch((error) => console.error('Failed to load graph:', error));
+        },
+        onDisconnect: () => {
+          setWsConnected(false);
+        },
+        // Remote user moved/edited an existing node
+        onNodeUpdate: (node) => {
+          applyRemoteUpdate({
+            type: 'node_updated',
+            payload: node,
+            timestamp: new Date().toISOString(),
+            userId: 'remote',
+          });
+        },
+        // Remote user extracted brand-new nodes
+        onNodeAdded: (node) => {
+          applyRemoteUpdate({
+            type: 'node_added',
+            payload: node,
+            timestamp: new Date().toISOString(),
+            userId: 'remote',
+          });
+        },
+        // Remote user updated an existing edge
+        onEdgeUpdate: (edge) => {
+          applyRemoteUpdate({
+            type: 'edge_updated',
+            payload: edge,
+            timestamp: new Date().toISOString(),
+            userId: 'remote',
+          });
+        },
+        // Remote user added a new edge
+        onEdgeAdded: (edge) => {
+          applyRemoteUpdate({
+            type: 'edge_added',
+            payload: edge,
+            timestamp: new Date().toISOString(),
+            userId: 'remote',
+          });
+        },
+        onRemoteMessage: (message) => {
+          applyRemoteUpdate(message);
+        },
+        onUsersOnline: (count) => {
+          setUsersOnline(count);
+        },
       },
-      onNodeUpdate: (node) => {
-        applyRemoteUpdate({
-          type: 'node_updated',
-          payload: node,
-          timestamp: new Date().toISOString(),
-          userId: 'remote',
-        });
-      },
-      onEdgeUpdate: (edge) => {
-        applyRemoteUpdate({
-          type: 'edge_updated',
-          payload: edge,
-          timestamp: new Date().toISOString(),
-          userId: 'remote',
-        });
-      },
-      onRemoteMessage: (message) => {
-        applyRemoteUpdate(message);
-      },
-    });
-  }, [setGraphState, applyRemoteUpdate]);
+      userId
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950">
@@ -74,7 +115,18 @@ export default function KnowledgeGraphPage() {
             🧠 Synapse Knowledge Graph Engine
           </motion.h1>
 
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-3 items-center flex-wrap">
+            {/* Live users badge */}
+            <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2">
+              <span
+                className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}
+              />
+              <p className="text-sm text-emerald-200">
+                <span className="font-bold">{usersOnline}</span>{' '}
+                {usersOnline === 1 ? 'user' : 'users'} online
+              </p>
+            </div>
+
             <div className="px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/30">
               <p className="text-sm text-indigo-200">
                 <span className="font-bold">{stats.nodeCount}</span> Concepts
@@ -146,7 +198,7 @@ export default function KnowledgeGraphPage() {
       {/* Footer */}
       <footer className="border-t border-indigo-500/30 bg-slate-900/50 mt-16">
         <div className="max-w-7xl mx-auto px-6 py-8 text-center text-indigo-300 text-sm">
-          <p>Real-time collaborative knowledge graph powered by Next.js, React Flow, Neo4j & Groq</p>
+          <p>Real-time collaborative knowledge graph powered by Next.js, React Flow, Neo4j &amp; Groq</p>
         </div>
       </footer>
     </div>
