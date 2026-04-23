@@ -1,4 +1,4 @@
-import { extractEntitiesAndRelationships } from '@/lib/ai/extractor';
+import { extractEntitiesAndRelationships, resolveConflict } from '@/lib/ai/extractor';
 import { createNode, createEdge } from '@/lib/db/neo4j';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -21,6 +21,16 @@ export async function POST(request: NextRequest) {
       existingNodes,
       userId
     );
+
+    let resolvedConflicts = result.conflicts;
+    if (result.conflicts && result.conflicts.length > 0) {
+      resolvedConflicts = await Promise.all(
+        result.conflicts.map((conflict) => {
+          const affectedNodes = result.nodes.filter((n) => conflict.nodeIds.includes(n.id));
+          return resolveConflict(conflict, affectedNodes);
+        })
+      );
+    }
 
     // Persist to database
     for (const node of result.nodes) {
@@ -45,7 +55,7 @@ export async function POST(request: NextRequest) {
       success: true,
       nodes: result.nodes,
       edges: result.edges,
-      conflicts: result.conflicts,
+      conflicts: resolvedConflicts,
       suggestions: result.suggestions,
     });
   } catch (error) {

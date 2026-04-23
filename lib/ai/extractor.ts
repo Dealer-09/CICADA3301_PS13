@@ -1,10 +1,43 @@
-import OpenAI from "openai";
 import { GraphNode, GraphEdge, ExtractionResult, ConflictItem, SuggestionItem } from "@/types/graph";
-import { v4 as uuidv4 } from "uuid";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "",
-});
+const aiApiKey = process.env.GROQ_API_KEY || "";
+const aiBaseUrl = "https://api.groq.com/openai/v1";
+const aiModel = "llama-3.3-70b-versatile";
+
+async function createGroqChatCompletion(
+  prompt: string,
+  temperature: number,
+  topP?: number
+): Promise<string> {
+  if (!aiApiKey) {
+    throw new Error("Missing required environment variable: GROQ_API_KEY");
+  }
+
+  const response = await fetch(`${aiBaseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${aiApiKey}`,
+    },
+    body: JSON.stringify({
+      model: aiModel,
+      messages: [{ role: "user", content: prompt }],
+      temperature,
+      ...(topP !== undefined ? { top_p: topP } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Groq API error (${response.status}): ${errorText}`);
+  }
+
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+
+  return data.choices?.[0]?.message?.content || "";
+}
 
 export async function extractEntitiesAndRelationships(
   input: string,
@@ -60,19 +93,7 @@ Respond in JSON format with the following structure:
 Be comprehensive but avoid redundancy. Focus on actionable, interconnected concepts.`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: "gpt-4-turbo",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      top_p: 0.9,
-    });
-
-    const content = response.choices[0]?.message?.content || "";
+    const content = await createGroqChatCompletion(prompt, 0.7, 0.9);
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     
     if (!jsonMatch) {
@@ -90,7 +111,7 @@ Be comprehensive but avoid redundancy. Focus on actionable, interconnected conce
         description?: string;
         confidence?: number;
       };
-      const id = uuidv4();
+      const id = crypto.randomUUID();
       nodeMap.set(node.label, id);
       return {
         id,
@@ -115,7 +136,7 @@ Be comprehensive but avoid redundancy. Focus on actionable, interconnected conce
         confidence?: number;
       };
       return {
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         source: nodeMap.get(edge.source) || edge.source,
         target: nodeMap.get(edge.target) || edge.target,
         label: edge.label,
@@ -190,8 +211,7 @@ Be comprehensive but avoid redundancy. Focus on actionable, interconnected conce
 export async function suggestNodeExpansion(
   nodeId: string,
   nodeLabel: string,
-  currentGraph: { nodes: GraphNode[]; edges: GraphEdge[] },
-  userId: string
+  currentGraph: { nodes: GraphNode[]; edges: GraphEdge[] }
 ): Promise<SuggestionItem[]> {
   const relatedNodes = currentGraph.edges
     .filter((e) => e.source === nodeId || e.target === nodeId)
@@ -214,18 +234,7 @@ Suggest 3-5 missing related concepts, deeper definitions, or alternative perspec
 Focus on practical, valuable connections.`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: "gpt-4-turbo",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-    });
-
-    const content = response.choices[0]?.message?.content || "";
+    const content = await createGroqChatCompletion(prompt, 0.7);
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     
     if (!jsonMatch) return [];
@@ -257,12 +266,11 @@ Focus on practical, valuable connections.`;
 
 export async function resolveConflict(
   conflict: ConflictItem,
-  affectedNodes: GraphNode[],
-  userId: string
+  affectedNodes: GraphNode[]
 ): Promise<ConflictItem> {
   if (conflict.type === "contradiction") {
     // Create branched nodes for contradictory concepts
-    const branchedId = uuidv4();
+    const branchedId = crypto.randomUUID();
     conflict.branchedNodeId = branchedId;
     conflict.resolution = "branch";
   } else if (conflict.type === "ambiguity") {
@@ -273,18 +281,8 @@ ${affectedNodes.map((n) => `- ${n.label}: ${n.description}`).join("\n")}
 Provide a brief clarification or distinguish between them.`;
 
     try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4-turbo",
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.5,
-      });
-
-      conflict.description = response.choices[0]?.message?.content || conflict.description;
+      const clarification = await createGroqChatCompletion(prompt, 0.5);
+      conflict.description = clarification || conflict.description;
       conflict.resolution = "manual"; // User reviews the clarification
     } catch (error) {
       console.error("Conflict resolution error:", error);

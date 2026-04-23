@@ -12,13 +12,13 @@ import ReactFlow, {
   Background,
   NodeTypes,
   OnNodesChange,
-  OnEdgesChange,
   OnConnect,
+  MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useGraphStore } from '@/store/graphStore';
-import { GraphNode, GraphEdge } from '@/types/graph';
-import { emitNodeUpdate } from '@/lib/ws/client';
+import { GraphEdge } from '@/types/graph';
+import { emitNodeUpdate, emitEdgeUpdate } from '@/lib/ws/client';
 import ConceptNode from './nodes/ConceptNode';
 import DefinitionNode from './nodes/DefinitionNode';
 
@@ -43,7 +43,7 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
   // Convert graph store nodes to React Flow nodes
   useEffect(() => {
-    const flowNodes: Node[] = graphNodes.map((node) => ({
+    const flowNodes: Node[] = graphNodes.map((node, index) => ({
       id: node.id,
       data: { 
         label: node.label,
@@ -51,10 +51,7 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         description: node.description,
         confidence: node.confidence,
       },
-      position: {
-        x: Math.random() * 600,
-        y: Math.random() * 400,
-      },
+      position: getNodePosition(node.id, node.metadata?.position, index),
       type: node.type,
       style: {
         background: getNodeColor(node.type),
@@ -90,7 +87,7 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         strokeWidth: Math.max(1, edge.confidence * 3),
       },
       markerEnd: {
-        type: 'arrowclosed',
+        type: MarkerType.ArrowClosed,
         color: getEdgeColor(edge.type),
       },
     }));
@@ -144,10 +141,10 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
           metadata: {},
         };
         addGraphEdge(newEdge);
-        emitNodeUpdate(graphNodes.find((n) => n.id === connection.source)!);
+        emitEdgeUpdate(newEdge);
       }
     },
-    [addGraphEdge, graphNodes]
+    [addGraphEdge]
   );
 
   return (
@@ -188,6 +185,32 @@ function getEdgeColor(type: string): string {
     similar_to: '#10b981',
   };
   return colors[type] || '#64748b';
+}
+
+function getNodePosition(
+  id: string,
+  metadataPosition: unknown,
+  index: number
+): { x: number; y: number } {
+  if (
+    typeof metadataPosition === 'object' &&
+    metadataPosition !== null &&
+    'x' in metadataPosition &&
+    'y' in metadataPosition
+  ) {
+    const p = metadataPosition as { x: number; y: number };
+    if (Number.isFinite(p.x) && Number.isFinite(p.y)) {
+      return { x: p.x, y: p.y };
+    }
+  }
+
+  const hash = id.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const col = hash % 6;
+  const row = Math.floor(index / 6);
+  return {
+    x: 120 + col * 180,
+    y: 80 + row * 140,
+  };
 }
 
 export default GraphCanvas;

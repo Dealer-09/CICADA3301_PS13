@@ -1,10 +1,12 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useGraphStore } from '@/store/graphStore';
 import { initializeWebSocket } from '@/lib/ws/client';
 import EntityInput from '@/components/EntityInput';
+import NodeDetails from '@/components/NodeDetails';
+import PathFinder from '@/components/PathFinder';
 import { motion } from 'framer-motion';
 
 const GraphCanvas = dynamic(() => import('@/components/GraphCanvas'), {
@@ -18,12 +20,15 @@ const GraphCanvas = dynamic(() => import('@/components/GraphCanvas'), {
 
 export default function KnowledgeGraphPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [stats, setStats] = useState({ nodeCount: 0, edgeCount: 0 });
-  const { nodes, edges, setGraphState } = useGraphStore();
+  const { nodes, edges, setGraphState, applyRemoteUpdate } = useGraphStore();
+  const stats = useMemo(
+    () => ({ nodeCount: nodes.length, edgeCount: edges.length }),
+    [nodes.length, edges.length]
+  );
 
   useEffect(() => {
     // Initialize WebSocket for real-time sync
-    initializeWebSocket(typeof window !== 'undefined' ? window.location.origin : '', {
+    initializeWebSocket(undefined, {
       onConnect: () => {
         console.log('Connected to WebSocket');
         // Load initial graph state
@@ -34,19 +39,27 @@ export default function KnowledgeGraphPage() {
           })
           .catch((error) => console.error('Failed to load graph:', error));
       },
+      onNodeUpdate: (node) => {
+        applyRemoteUpdate({
+          type: 'node_updated',
+          payload: node,
+          timestamp: new Date().toISOString(),
+          userId: 'remote',
+        });
+      },
+      onEdgeUpdate: (edge) => {
+        applyRemoteUpdate({
+          type: 'edge_updated',
+          payload: edge,
+          timestamp: new Date().toISOString(),
+          userId: 'remote',
+        });
+      },
       onRemoteMessage: (message) => {
-        console.log('Remote update:', message);
+        applyRemoteUpdate(message);
       },
     });
-  }, [setGraphState]);
-
-  // Update stats
-  useEffect(() => {
-    setStats({
-      nodeCount: nodes.length,
-      edgeCount: edges.length,
-    });
-  }, [nodes, edges]);
+  }, [setGraphState, applyRemoteUpdate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950">
@@ -102,6 +115,15 @@ export default function KnowledgeGraphPage() {
                 The system automatically finds paths and relationships between concepts using multi-hop graph queries.
               </p>
             </motion.div>
+
+            {selectedNodeId && (
+              <NodeDetails
+                nodeId={selectedNodeId}
+                onClose={() => setSelectedNodeId(null)}
+              />
+            )}
+
+            <PathFinder />
           </motion.div>
 
           {/* Right Panel - Graph Canvas */}
@@ -124,7 +146,7 @@ export default function KnowledgeGraphPage() {
       {/* Footer */}
       <footer className="border-t border-indigo-500/30 bg-slate-900/50 mt-16">
         <div className="max-w-7xl mx-auto px-6 py-8 text-center text-indigo-300 text-sm">
-          <p>Real-time collaborative knowledge graph powered by Next.js, React Flow, Neo4j & OpenAI</p>
+          <p>Real-time collaborative knowledge graph powered by Next.js, React Flow, Neo4j & Groq</p>
         </div>
       </footer>
     </div>

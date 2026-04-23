@@ -1,4 +1,4 @@
-import neo4j, { Driver, Session } from "neo4j-driver";
+import neo4j, { Driver } from "neo4j-driver";
 import { GraphNode, GraphEdge, PathSearchResult } from "@/types/graph";
 
 // Database connection management
@@ -9,20 +9,24 @@ const DB_CONFIG = {
   maxConnectionLifetime: 60 * 60 * 1000, // 1 hour
 };
 
-const DEFAULT_DB_URL = "bolt://localhost:7687";
-const DEFAULT_USER = "neo4j";
-const DEFAULT_PASSWORD = "password";
-
 export function initializeDatabase(): Driver {
   if (driver) return driver;
 
-  const dbUrl = process.env.NEO4J_URL || DEFAULT_DB_URL;
-  const dbUser = process.env.NEO4J_USER || DEFAULT_USER;
-  const dbPassword = process.env.NEO4J_PASSWORD || DEFAULT_PASSWORD;
+  const dbUrl = requiredEnv("NEO4J_URL");
+  const dbUser = requiredEnv("NEO4J_USER");
+  const dbPassword = requiredEnv("NEO4J_PASSWORD");
 
   driver = neo4j.driver(dbUrl, neo4j.auth.basic(dbUser, dbPassword), DB_CONFIG);
 
   return driver;
+}
+
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
 }
 
 export function getDatabase(): Driver {

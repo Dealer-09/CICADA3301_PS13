@@ -17,8 +17,7 @@ export async function POST(request: NextRequest) {
     const nodes = await getAllNodes();
     const edges = await getAllEdges();
 
-    const userId = request.headers.get('x-user-id') || 'anonymous';
-    const suggestions = await suggestNodeExpansion(nodeId, nodeLabel, { nodes, edges }, userId);
+    const suggestions = await suggestNodeExpansion(nodeId, nodeLabel, { nodes, edges });
 
     return NextResponse.json({
       suggestions,

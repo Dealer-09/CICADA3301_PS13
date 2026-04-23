@@ -12,14 +12,20 @@ interface SyncHandler {
 }
 
 export function initializeWebSocket(
-  url: string = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000",
+  url?: string,
   handlers: Partial<SyncHandler> = {}
 ): Socket {
   if (socket) {
     return socket;
   }
 
-  socket = io(url, {
+  const endpoint =
+    url ||
+    (typeof window !== "undefined"
+      ? process.env.NEXT_PUBLIC_WS_URL || window.location.origin
+      : process.env.NEXT_PUBLIC_WS_URL || "http://localhost:3000");
+
+  socket = io(endpoint, {
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
@@ -28,7 +34,7 @@ export function initializeWebSocket(
   });
 
   socket.on("connect", () => {
-    console.log("WebSocket connected");
+    console.log("WebSocket connected", { endpoint });
     handlers.onConnect?.();
   });
 

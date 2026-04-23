@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useGraphStore } from '@/store/graphStore';
+import { ExtractionResult } from '@/types/graph';
 import { emitNodeUpdate, emitEdgeUpdate } from '@/lib/ws/client';
 import { motion } from 'framer-motion';
 
@@ -39,16 +40,16 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
         throw new Error('Failed to extract entities');
       }
 
-      const result = await response.json();
+      const result = (await response.json()) as ExtractionResult;
 
       // Add extracted nodes
-      result.nodes.forEach((node: any) => {
+      result.nodes.forEach((node) => {
         addNode(node);
         emitNodeUpdate(node);
       });
 
       // Add extracted edges
-      result.edges.forEach((edge: any) => {
+      result.edges.forEach((edge) => {
         addEdge(edge);
         emitEdgeUpdate(edge);
       });
@@ -56,11 +57,11 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
       setInput('');
       onExtracted?.();
 
-      if (result.conflicts?.length > 0) {
+      if ((result.conflicts?.length ?? 0) > 0) {
         console.warn('Conflicts detected:', result.conflicts);
       }
 
-      if (result.suggestions?.length > 0) {
+      if ((result.suggestions?.length ?? 0) > 0) {
         console.log('Suggestions:', result.suggestions);
       }
     } catch (err) {

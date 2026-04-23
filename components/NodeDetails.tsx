@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useGraphStore } from '@/store/graphStore';
 import { GraphNode } from '@/types/graph';
 import { motion } from 'framer-motion';
@@ -19,22 +19,13 @@ interface SuggestionData {
 
 const NodeDetails: React.FC<NodeDetailsProps> = ({ nodeId, onClose }) => {
   const { nodes, getConnectedNodes } = useGraphStore();
-  const [node, setNode] = useState<GraphNode | null>(null);
-  const [connectedNodes, setConnectedNodes] = useState<GraphNode[]>([]);
   const [suggestions, setSuggestions] = useState<SuggestionData[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
-  useEffect(() => {
-    const foundNode = nodes.find((n) => n.id === nodeId);
-    if (foundNode) {
-      setNode(foundNode);
-      const connected = getConnectedNodes(nodeId);
-      setConnectedNodes(connected);
-      loadSuggestions(foundNode);
-    }
-  }, [nodeId, nodes, getConnectedNodes]);
+  const node = useMemo(() => nodes.find((n) => n.id === nodeId) ?? null, [nodes, nodeId]);
+  const connectedNodes = useMemo(() => getConnectedNodes(nodeId), [getConnectedNodes, nodeId]);
 
-  const loadSuggestions = async (selectedNode: GraphNode) => {
+  const loadSuggestions = useCallback(async (selectedNode: GraphNode) => {
     setLoadingSuggestions(true);
     try {
       const response = await fetch('/api/graph/expand', {
@@ -55,7 +46,14 @@ const NodeDetails: React.FC<NodeDetailsProps> = ({ nodeId, onClose }) => {
     } finally {
       setLoadingSuggestions(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (node) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void loadSuggestions(node);
+    }
+  }, [node, loadSuggestions]);
 
   if (!node) {
     return null;
