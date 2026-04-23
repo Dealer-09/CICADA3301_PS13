@@ -26,12 +26,20 @@ interface ForceGraphCanvasProps {
 
 const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdgeSelect }) => {
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
+
+  // Configure physics forces after mount so nodes spread out and are readable
+  useEffect(() => {
+    const fg = fgRef.current as any;
+    if (!fg) return;
+    fg.d3Force('charge')?.strength(-500);
+    fg.d3Force('link')?.distance(140);
+  }, []);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [isLegendExpanded, setIsLegendExpanded] = useState(true);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  const { nodes, edges, highlightedNodeIds, highlightedEdgeIds } = useGraphStore();
+  const { nodes, edges, highlightedNodeIds, highlightedEdgeIds, setHighlightedPath, clearHighlight } = useGraphStore();
 
   // Resize observer to make graph responsive
   useEffect(() => {
@@ -89,13 +97,31 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
 
   const handleNodeClick = useCallback((node: any) => {
     if (onNodeSelect) onNodeSelect(node.id);
-    
+
+    // Find all edges connected to this node
+    const connectedEdges = edges.filter(e => {
+      const src = typeof e.source === 'object' ? (e.source as any).id : e.source;
+      const tgt = typeof e.target === 'object' ? (e.target as any).id : e.target;
+      return src === node.id || tgt === node.id;
+    });
+
+    // Collect the neighbor node IDs
+    const neighborIds = new Set<string>([node.id]);
+    connectedEdges.forEach(e => {
+      const src = typeof e.source === 'object' ? (e.source as any).id : e.source;
+      const tgt = typeof e.target === 'object' ? (e.target as any).id : e.target;
+      neighborIds.add(src);
+      neighborIds.add(tgt);
+    });
+
+    setHighlightedPath(Array.from(neighborIds), connectedEdges.map(e => e.id));
+
     // Zoom to node
     if (fgRef.current) {
-      fgRef.current.centerAt(node.x, node.y, 1000);
-      fgRef.current.zoom(2, 2000);
+      fgRef.current.centerAt(node.x, node.y, 800);
+      fgRef.current.zoom(2.5, 1000);
     }
-  }, [onNodeSelect]);
+  }, [onNodeSelect, edges, setHighlightedPath]);
 
   const handleLinkClick = useCallback((link: any) => {
     if (onEdgeSelect) onEdgeSelect(link.id);
@@ -156,6 +182,10 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
         height={dimensions.height}
         graphData={graphData}
         nodeLabel="label"
+        // ── Physics: push nodes apart so labels are readable ──
+        d3VelocityDecay={0.25}
+        d3AlphaDecay={0.012}
+        cooldownTicks={250}
         nodeColor={(node: any) => {
           if (selectedType) return node.type === selectedType ? node.color : '#1f2937';
           if (highlightedNodeIds.size > 0) return highlightedNodeIds.has(node.id) ? node.color : '#374151';
@@ -232,6 +262,7 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
         }}
         onNodeClick={handleNodeClick}
         onLinkClick={handleLinkClick}
+        onBackgroundClick={() => clearHighlight()}
         backgroundColor="#111827"
         onEngineStop={() => fgRef.current?.zoomToFit(400, 60)}
         nodeCanvasObject={(node: any, ctx, globalScale) => {

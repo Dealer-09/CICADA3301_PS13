@@ -1,66 +1,57 @@
-Next.js Skeleton
+# 🧠 Synapse Knowledge Graph Engine
 
-***🚀 DevWrap 2.0 — Repository Setup Guide***
+Synapse is a modern, AI-powered knowledge graph extraction and visualization engine. It allows users to transform unstructured natural language into structured graph data in real-time, featuring a high-performance physics-based visualization layer.
 
-Follow these steps carefully to set up your team repository correctly.
+## ✨ Key Features
 
-- 1️⃣ Fork the Repository
-Go to the main repository link shared by the organizers
-Click the Fork button (top-right corner) on GitHub
-This creates a copy of the repository under your account
-- 2️⃣ Rename Your Forked Repository
+- **Real-time AI Extraction**: Powered by Groq/Llama-3, Synapse extracts entities, relationships, and descriptions from raw text.
+- **Cross-Graph Linking**: Automatically identifies real-world connections between newly added nodes and existing graph data.
+- **Interactive Visualization**: High-performance 2D force-directed graph with custom canvas rendering, halos, and interactive legend filtering.
+- **Collaborative Sync**: Built-in WebSocket support via Socket.io for multi-user real-time collaboration.
+- **Hybrid Input**: Support for both natural language "Threads" and raw JSON injection for power users.
+- **Path Traversal**: Interactive tool to find the shortest or most relevant path between concepts.
 
-After forking:
+## 🛠 Tech Stack
 
-Open your forked repository
-Go to Settings → Repository Name
-Rename it using the format:
-TeamName_ProjectId
-✅ Example:
-CodeWarriors_DW102
+- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, Framer Motion.
+- **Visualization**: `react-force-graph-2d` (D3-powered).
+- **Database**: Neo4j (Graph storage).
+- **AI**: Groq API (Llama-3-70b-8192).
+- **Real-time**: Socket.io.
+- **State Management**: Zustand.
 
-⚠️ This format is mandatory for evaluation and tracking.
+## 🚀 Getting Started
 
-- 3️⃣ Add Your Team Members as Contributors
-Go to Settings → Collaborators
-Click Add people
-Enter your teammates’ GitHub usernames
-Send the invite
-Teammates must accept the invitation
-💡 Tip:
+### 1. Prerequisites
+- Node.js 18+ / Bun.
+- A running Neo4j instance.
+- A Groq API Key.
 
-Ensure all team members are added — commits from non-members may not be considered.
-
-- 4️⃣ Clone the Repository to Your Local Machine
-🔹 Step 1: Copy Repo URL
-Go to your forked repo
-Click Code → HTTPS
-Copy the URL
-🔹 Step 2: Clone using Git
-
-Open terminal / command prompt:
-```bash
-git clone https://github.com/your-username/TeamName_ProjectId.git
-```
-🔹 Step 3: Move into Project Folder
-cd TeamName_ProjectId
-- 5️⃣ Start Working Locally
-🔹 Create a new branch (recommended)
-```bash
-git checkout -b feature/your-feature-name
-```
-🔹 Make changes, then commit
-```bash
-git add .
-git commit -m "Added: feature description"
-```
-🔹 Push changes to GitHub
-```bash
-git push origin feature/your-feature-name
+### 2. Environment Variables
+Create a `.env.local` file:
+```env
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your_password
+GROQ_API_KEY=gsk_...
+NEXT_PUBLIC_WS_URL=http://localhost:3000
 ```
 
-✅ Final Checklist
-✔ Repository name follows TeamName_ProjectId
-✔ All teammates added as collaborators
-✔ Code pushed to GitHub regularly
-✔ Proper commit messages used
+### 3. Installation
+```bash
+bun install
+```
+
+### 4. Run Development Server
+```bash
+bun dev
+```
+
+## 🧹 Codebase Cleanup Note
+This repository has been audited for dead code.
+- Removed `EntityInput.tsx` (Logic integrated into main page).
+- Removed legacy `components/nodes/` directory (Rendering handled by canvas layer).
+- Standardized entity types across AI extraction and UI.
+
+---
+*Built for the CICADA3301 Project Challenge.*
