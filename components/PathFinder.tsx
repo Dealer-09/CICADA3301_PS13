@@ -6,12 +6,18 @@ import { PathSearchResult } from '@/types/graph';
 import { motion } from 'framer-motion';
 
 const PathFinder: React.FC = () => {
-  const { nodes } = useGraphStore();
+  const { nodes, setHighlightedPath, clearHighlight } = useGraphStore();
   const [sourceId, setSourceId] = useState('');
   const [targetId, setTargetId] = useState('');
   const [result, setResult] = useState<PathSearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      clearHighlight();
+    };
+  }, [clearHighlight]);
 
   const handleSearch = async () => {
     if (!sourceId || !targetId) {
@@ -36,8 +42,13 @@ const PathFinder: React.FC = () => {
 
       const data = await response.json();
       setResult(data);
+      setHighlightedPath(
+        data.path,
+        data.edges.map((e: any) => e.id)
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
+      clearHighlight();
     } finally {
       setLoading(false);
     }
@@ -54,7 +65,11 @@ const PathFinder: React.FC = () => {
         <label className="block text-sm font-bold text-gray-800 mb-2">From:</label>
         <select
           value={sourceId}
-          onChange={(e) => setSourceId(e.target.value)}
+          onChange={(e) => {
+            setSourceId(e.target.value);
+            clearHighlight();
+            setResult(null);
+          }}
           className="w-full p-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500"
         >
           <option value="">Select source concept</option>
@@ -71,7 +86,11 @@ const PathFinder: React.FC = () => {
         <label className="block text-sm font-bold text-gray-800 mb-2">To:</label>
         <select
           value={targetId}
-          onChange={(e) => setTargetId(e.target.value)}
+          onChange={(e) => {
+            setTargetId(e.target.value);
+            clearHighlight();
+            setResult(null);
+          }}
           className="w-full p-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500"
         >
           <option value="">Select target concept</option>

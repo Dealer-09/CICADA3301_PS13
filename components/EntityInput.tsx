@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useGraphStore } from '@/store/graphStore';
-import { ExtractionResult } from '@/types/graph';
+import { ExtractionResult, ConflictItem, SuggestionItem } from '@/types/graph';
 import { emitNodeAdded, emitEdgeAdded } from '@/lib/ws/client';
 import { motion } from 'framer-motion';
 
@@ -14,6 +14,8 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
   const { addNode, addEdge, nodes } = useGraphStore();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -25,6 +27,8 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
 
     setLoading(true);
     setError(null);
+    setConflicts([]);
+    setSuggestions([]);
 
     try {
       const response = await fetch('/api/extract', {
@@ -58,10 +62,12 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
       onExtracted?.();
 
       if ((result.conflicts?.length ?? 0) > 0) {
+        setConflicts(result.conflicts!);
         console.warn('Conflicts detected:', result.conflicts);
       }
 
       if ((result.suggestions?.length ?? 0) > 0) {
+        setSuggestions(result.suggestions!);
         console.log('Suggestions:', result.suggestions);
       }
     } catch (err) {
@@ -124,6 +130,39 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
       <p className="text-gray-600 text-sm mt-4">
         💡 Tip: The more detailed and structured your input, the better the concept extraction.
       </p>
+
+      {/* Extracted Data Feedback */}
+      {conflicts.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="mt-4 p-4 bg-orange-50 border border-orange-300 rounded-lg"
+        >
+          <h3 className="font-bold text-orange-800 mb-2">⚠️ Conflicts Detected</h3>
+          <ul className="list-disc pl-5 space-y-1 text-sm text-orange-700">
+            {conflicts.map((c, i) => (
+              <li key={i}>{c.description}</li>
+            ))}
+          </ul>
+        </motion.div>
+      )}
+
+      {suggestions.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="mt-4 p-4 bg-blue-50 border border-blue-300 rounded-lg"
+        >
+          <h3 className="font-bold text-blue-800 mb-2">💡 Expansions Suggested</h3>
+          <ul className="list-disc pl-5 space-y-1 text-sm text-blue-700">
+            {suggestions.map((s, i) => (
+              <li key={i}>
+                <span className="font-semibold">{s.suggestedNode?.label || s.type}:</span> {s.description}
+              </li>
+            ))}
+          </ul>
+        </motion.div>
+      )}
     </motion.div>
   );
 };

@@ -5,6 +5,8 @@ interface GraphStore {
   nodes: GraphNode[];
   edges: GraphEdge[];
   selectedNodeId: string | null;
+  highlightedNodeIds: Set<string>;
+  highlightedEdgeIds: Set<string>;
   syncId: string;
   version: number;
 
@@ -15,6 +17,8 @@ interface GraphStore {
   addEdge: (edge: GraphEdge) => void;
   removeEdge: (id: string) => void;
   selectNode: (id: string | null) => void;
+  setHighlightedPath: (nodeIds: string[], edgeIds: string[]) => void;
+  clearHighlight: () => void;
   setGraphState: (state: GraphState) => void;
   applyRemoteUpdate: (message: RealtimeSyncMessage) => void;
   getConnectedNodes: (nodeId: string) => GraphNode[];
@@ -26,6 +30,8 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
+  highlightedNodeIds: new Set(),
+  highlightedEdgeIds: new Set(),
   syncId: "",
   version: 0,
 
@@ -78,6 +84,22 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
   selectNode: (id: string | null) => {
     set({ selectedNodeId: id });
+  },
+
+  setHighlightedPath: (nodeIds: string[], edgeIds: string[]) => {
+    set({
+      highlightedNodeIds: new Set(nodeIds),
+      highlightedEdgeIds: new Set(edgeIds),
+      version: get().version + 1,
+    });
+  },
+
+  clearHighlight: () => {
+    set({
+      highlightedNodeIds: new Set(),
+      highlightedEdgeIds: new Set(),
+      version: get().version + 1,
+    });
   },
 
   setGraphState: (state: GraphState) => {
@@ -171,6 +193,8 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       nodes: [],
       edges: [],
       selectedNodeId: null,
+      highlightedNodeIds: new Set(),
+      highlightedEdgeIds: new Set(),
       syncId: "",
       version: 0,
     });

@@ -24,12 +24,20 @@ export async function POST(request: NextRequest) {
 
     let resolvedConflicts = result.conflicts;
     if (result.conflicts && result.conflicts.length > 0) {
-      resolvedConflicts = await Promise.all(
+      const resolutions = await Promise.all(
         result.conflicts.map((conflict) => {
           const affectedNodes = result.nodes.filter((n) => conflict.nodeIds.includes(n.id));
-          return resolveConflict(conflict, affectedNodes);
+          return resolveConflict(conflict, affectedNodes, userId);
         })
       );
+      
+      resolvedConflicts = resolutions.map(r => r.conflict);
+      
+      // Inject the newly branched conflict resolution nodes/edges into the extraction result
+      for (const res of resolutions) {
+        result.nodes.push(...res.newNodes);
+        result.edges.push(...res.newEdges);
+      }
     }
 
     // Persist to database

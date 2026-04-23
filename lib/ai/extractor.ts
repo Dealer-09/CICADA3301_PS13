@@ -1,5 +1,8 @@
 import { GraphNode, GraphEdge, ExtractionResult, ConflictItem, SuggestionItem } from "@/types/graph";
 
+// ⚠️ CLARIFICATION: "Groq" (with a Q) is the ultra-fast LPU inference engine that hosts open-source models like Llama 3.
+// It provides an "OpenAI-compatible" endpoint so that standard AI SDKs work out of the box.
+// This is NOT "Grok" (with a K) from xAI. Your API key (gsk_...) is a Groq key.
 const aiApiKey = process.env.GROQ_API_KEY || "";
 const aiBaseUrl = "https://api.groq.com/openai/v1";
 const aiModel = "llama-3.3-70b-versatile";
@@ -94,6 +97,8 @@ Be comprehensive but avoid redundancy. Focus on actionable, interconnected conce
 
   try {
     const content = await createGroqChatCompletion(prompt, 0.7, 0.9);
+    console.log("[AI] Raw Extraction Response:", content);
+    
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     
     if (!jsonMatch) {
@@ -193,18 +198,7 @@ Be comprehensive but avoid redundancy. Focus on actionable, interconnected conce
     };
   } catch (error) {
     console.error("Entity extraction error:", error);
-    return {
-      nodes: [],
-      edges: [],
-      conflicts: [
-        {
-          type: "ambiguity",
-          nodeIds: [],
-          description: `Failed to extract from input: "${input.substring(0, 50)}..."`,
-          resolution: "manual",
-        },
-      ],
-    };
+    throw error; // Rethrow so the UI can show the actual error message
   }
 }
 
@@ -266,13 +260,46 @@ Focus on practical, valuable connections.`;
 
 export async function resolveConflict(
   conflict: ConflictItem,
-  affectedNodes: GraphNode[]
-): Promise<ConflictItem> {
+  affectedNodes: GraphNode[],
+  userId: string
+): Promise<{ conflict: ConflictItem; newNodes: GraphNode[]; newEdges: GraphEdge[] }> {
+  const newNodes: GraphNode[] = [];
+  const newEdges: GraphEdge[] = [];
+
   if (conflict.type === "contradiction") {
     // Create branched nodes for contradictory concepts
     const branchedId = crypto.randomUUID();
     conflict.branchedNodeId = branchedId;
     conflict.resolution = "branch";
+
+    const branchedNode: GraphNode = {
+      id: branchedId,
+      label: `${affectedNodes[0]?.label || "Concept"} (Branch)`,
+      type: "concept",
+      description: `Alternative interpretation: ${conflict.description}`,
+      confidence: 0.8,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: userId,
+      metadata: {},
+    };
+    newNodes.push(branchedNode);
+
+    // Link branch to affected nodes to show where the contradiction stems from
+    for (const node of affectedNodes) {
+      newEdges.push({
+        id: crypto.randomUUID(),
+        source: node.id,
+        target: branchedId,
+        label: 'contradicts',
+        type: 'relates_to',
+        confidence: 0.9,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: userId,
+        metadata: {},
+      });
+    }
   } else if (conflict.type === "ambiguity") {
     // Try to clarify through AI
     const prompt = `The following concepts in a knowledge graph are ambiguous:
@@ -289,5 +316,5 @@ Provide a brief clarification or distinguish between them.`;
     }
   }
 
-  return conflict;
+  return { conflict, newNodes, newEdges };
 }

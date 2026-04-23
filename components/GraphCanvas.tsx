@@ -36,64 +36,110 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
   mode = 'edit', 
   onNodeSelect 
 }) => {
-  const { nodes: graphNodes, edges: graphEdges, addEdge: addGraphEdge, updateNode } = useGraphStore();
+  const { nodes: graphNodes, edges: graphEdges, addEdge: addGraphEdge, updateNode, highlightedNodeIds, highlightedEdgeIds } = useGraphStore();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
 
   // Convert graph store nodes to React Flow nodes
   useEffect(() => {
-    const flowNodes: Node[] = graphNodes.map((node, index) => ({
-      id: node.id,
-      data: { 
-        label: node.label,
+    const isHighlighting = highlightedNodeIds.size > 0;
+
+    const flowNodes: Node[] = graphNodes.map((node, index) => {
+      const isSelected = selectedNode === node.id;
+      const isHighlighted = highlightedNodeIds.has(node.id);
+      
+      let borderStyle = '2px solid #333';
+      let opacity = 1;
+      let boxShadow = 'none';
+
+      if (isHighlighting) {
+        if (isHighlighted) {
+          borderStyle = '3px solid #10b981'; // emerald green
+          boxShadow = '0 0 15px rgba(16, 185, 129, 0.6)';
+        } else {
+          opacity = 0.3; // dim non-path nodes
+        }
+      } else if (isSelected) {
+        borderStyle = '3px solid #ff6b6b';
+        boxShadow = '0 0 10px rgba(255, 107, 107, 0.4)';
+      }
+
+      return {
+        id: node.id,
+        data: { 
+          label: node.label,
+          type: node.type,
+          description: node.description,
+          confidence: node.confidence,
+        },
+        position: getNodePosition(node.id, node.metadata?.position, index),
         type: node.type,
-        description: node.description,
-        confidence: node.confidence,
-      },
-      position: getNodePosition(node.id, node.metadata?.position, index),
-      type: node.type,
-      style: {
-        background: getNodeColor(node.type),
-        border: selectedNode === node.id ? '3px solid #ff6b6b' : '2px solid #333',
-        borderRadius: '8px',
-        padding: '10px',
-        color: '#fff',
-        fontSize: '12px',
-        fontWeight: 'bold',
-        maxWidth: '150px',
-        textAlign: 'center',
-        cursor: 'pointer',
-        transition: 'all 0.2s',
-      },
-      selectable: true,
-      draggable: mode === 'edit',
-    }));
+        style: {
+          background: getNodeColor(node.type),
+          border: borderStyle,
+          borderRadius: '8px',
+          padding: '10px',
+          color: '#fff',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          maxWidth: '150px',
+          textAlign: 'center',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease-in-out',
+          opacity,
+          boxShadow,
+        },
+        selectable: true,
+        draggable: mode === 'edit',
+      };
+    });
 
     setNodes(flowNodes);
-  }, [graphNodes, selectedNode, setNodes, mode]);
+  }, [graphNodes, selectedNode, setNodes, mode, highlightedNodeIds]);
 
   // Convert graph store edges to React Flow edges
   useEffect(() => {
-    const flowEdges: Edge[] = graphEdges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      label: edge.label,
-      type: 'default',
-      animated: edge.confidence > 0.8,
-      style: {
-        stroke: getEdgeColor(edge.type),
-        strokeWidth: Math.max(1, edge.confidence * 3),
-      },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: getEdgeColor(edge.type),
-      },
-    }));
+    const isHighlighting = highlightedEdgeIds.size > 0;
+
+    const flowEdges: Edge[] = graphEdges.map((edge) => {
+      const isHighlighted = highlightedEdgeIds.has(edge.id);
+      
+      let strokeColor = getEdgeColor(edge.type);
+      let opacity = 1;
+      let strokeWidth = Math.max(1, edge.confidence * 3);
+
+      if (isHighlighting) {
+        if (isHighlighted) {
+          strokeColor = '#10b981'; // emerald green
+          strokeWidth = 4;
+        } else {
+          opacity = 0.2;
+        }
+      }
+
+      return {
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        label: edge.label,
+        type: 'default',
+        animated: isHighlighted || (!isHighlighting && edge.confidence > 0.8),
+        style: {
+          stroke: strokeColor,
+          strokeWidth,
+          opacity,
+          transition: 'all 0.3s ease-in-out',
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: strokeColor,
+        },
+      };
+    });
 
     setEdges(flowEdges);
-  }, [graphEdges, setEdges]);
+  }, [graphEdges, setEdges, highlightedEdgeIds]);
 
   const handleNodesChange: OnNodesChange = useCallback((changes) => {
     onNodesChange(changes);
