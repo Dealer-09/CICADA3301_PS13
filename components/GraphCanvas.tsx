@@ -172,7 +172,6 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         
         if (response.ok) {
           emitEdgeRemoved(edge.id);
-          console.log(`[Edge] Deleted edge: ${edge.id}`);
         }
       } catch (error) {
         console.error('Failed to delete edge:', error);

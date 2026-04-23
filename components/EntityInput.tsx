@@ -63,12 +63,10 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
 
       if ((result.conflicts?.length ?? 0) > 0) {
         setConflicts(result.conflicts!);
-        console.warn('Conflicts detected:', result.conflicts);
       }
 
       if ((result.suggestions?.length ?? 0) > 0) {
         setSuggestions(result.suggestions!);
-        console.log('Suggestions:', result.suggestions);
       }
     } finally {
       setLoading(false);

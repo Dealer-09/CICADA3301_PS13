@@ -12,8 +12,16 @@ import { motion } from 'framer-motion';
 const GraphCanvas = dynamic(() => import('@/components/GraphCanvas'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-gray-100">
-      <p className="text-gray-500">Loading graph canvas...</p>
+    <div className="w-full h-[600px] flex flex-col items-center justify-center bg-indigo-50/50 border border-indigo-100 rounded-lg animate-pulse">
+      <div className="relative w-24 h-24 mb-6">
+        <div className="absolute inset-0 border-4 border-indigo-200 rounded-full"></div>
+        <div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-2xl">🧠</span>
+        </div>
+      </div>
+      <p className="text-indigo-800 font-bold text-lg tracking-wide">Initializing Neural Graph...</p>
+      <p className="text-indigo-500 text-sm mt-2">Syncing with Neo4j database</p>
     </div>
   ),
 });
@@ -42,7 +50,6 @@ export default function KnowledgeGraphPage() {
       {
         onConnect: () => {
           setWsConnected(true);
-          console.log('Connected to WebSocket');
           // Load initial graph state from Neo4j
           fetch('/api/graph')
             .then((res) => res.json())
@@ -167,7 +174,7 @@ export default function KnowledgeGraphPage() {
             className="lg:col-span-1 space-y-6"
           >
             {/* Entity Input */}
-            <EntityInput onExtracted={() => console.log('Concepts extracted')} />
+            <EntityInput onExtracted={() => {}} />
 
             {/* Path Search Info */}
             <motion.div

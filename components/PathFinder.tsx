@@ -74,7 +74,7 @@ const PathFinder: React.FC = () => {
         >
           <option value="">Select source concept</option>
           {nodes.map((node) => (
-            <option key={node.id} value={node.id}>
+            <option key={node.id} value={node.id} disabled={node.id === targetId}>
               {node.label} ({node.type})
             </option>
           ))}
@@ -95,7 +95,7 @@ const PathFinder: React.FC = () => {
         >
           <option value="">Select target concept</option>
           {nodes.map((node) => (
-            <option key={node.id} value={node.id}>
+            <option key={node.id} value={node.id} disabled={node.id === sourceId}>
               {node.label} ({node.type})
             </option>
           ))}
