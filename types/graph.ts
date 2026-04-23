@@ -1,0 +1,71 @@
+// Type definitions for the Knowledge Graph Engine
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: "concept" | "definition" | "entity" | "relationship";
+  description?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  confidence: number; // 0-1, confidence score from AI
+}
+
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  type: string; // e.g., "relates_to", "is_a", "depends_on"
+  weight?: number;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  confidence: number;
+}
+
+export interface GraphState {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  lastSyncId: string;
+  version: number;
+}
+
+export interface ExtractionResult {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  conflicts?: ConflictItem[];
+  suggestions?: SuggestionItem[];
+}
+
+export interface ConflictItem {
+  type: "contradiction" | "ambiguity";
+  nodeIds: string[];
+  description: string;
+  resolution?: "merge" | "branch" | "manual";
+  branchedNodeId?: string;
+}
+
+export interface SuggestionItem {
+  type: "missing_link" | "related_concept" | "refine_entity";
+  source: string;
+  target?: string;
+  description: string;
+  suggestedNode?: Partial<GraphNode>;
+}
+
+export interface RealtimeSyncMessage {
+  type: "node_added" | "node_updated" | "edge_added" | "edge_updated" | "conflict_detected";
+  payload: GraphNode | GraphEdge | ConflictItem;
+  timestamp: string;
+  userId: string;
+}
+
+export interface PathSearchResult {
+  path: string[]; // node IDs in order
+  edges: GraphEdge[];
+  distance: number;
+  confidence: number;
+}

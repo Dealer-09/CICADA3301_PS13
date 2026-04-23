@@ -1,0 +1,34 @@
+import { suggestNodeExpansion } from '@/lib/ai/extractor';
+import { getAllNodes, getAllEdges } from '@/lib/db/neo4j';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { nodeId, nodeLabel } = body;
+
+    if (!nodeId || !nodeLabel) {
+      return NextResponse.json(
+        { error: 'nodeId and nodeLabel are required' },
+        { status: 400 }
+      );
+    }
+
+    const nodes = await getAllNodes();
+    const edges = await getAllEdges();
+
+    const userId = request.headers.get('x-user-id') || 'anonymous';
+    const suggestions = await suggestNodeExpansion(nodeId, nodeLabel, { nodes, edges }, userId);
+
+    return NextResponse.json({
+      suggestions,
+      nodeId,
+    });
+  } catch (error) {
+    console.error('Node expansion error:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate suggestions' },
+      { status: 500 }
+    );
+  }
+}
