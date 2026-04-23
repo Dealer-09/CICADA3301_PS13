@@ -65,6 +65,8 @@ IMPORTANT: Use EXACTLY these node types:
 - "Topic" (Subjects of discussion, themes)
 - "User" (Specific people, users)
 
+${existingContext ? `Already existing concepts in graph (do NOT re-extract these):\n${existingContext}\n` : ""}
+
 FORMAT REQUIREMENTS:
 Return valid JSON only. Do not include markdown formatting like \`\`\`json.
 {
@@ -96,10 +98,21 @@ Return valid JSON only. Do not include markdown formatting like \`\`\`json.
   ]
 }
 
-Be comprehensive but avoid redundancy. Focus on actionable, interconnected concepts.`;
+STRICT RULES (ALL MUST BE FOLLOWED):
+1. Extract ONLY entities and relationships that are EXPLICITLY stated in the input text.
+2. Do NOT infer, guess, or hallucinate entities from your training knowledge.
+3. NEVER create nodes for years, dates, numbers, or times (e.g. "2002", "15 minutes", "3rd"). These belong as properties on the EDGE label (e.g. label: "founded_in_2002"), never as standalone nodes.
+4. If a concept already exists in the "existing concepts" list above, do NOT create a new node for it. Instead, reference it by its label in the edge source/target so they are linked.
+5. Relationships between entities MUST use their exact label strings as "source" and "target" values.
+
+
+INPUT TEXT TO EXTRACT FROM:
+"""
+${input}
+"""`;
 
   try {
-    const content = await createGroqChatCompletion(prompt, 0.7, 0.9);
+    const content = await createGroqChatCompletion(prompt, 0.1, 0.5);
     console.log("[AI] Raw Extraction Response:", content);
     
     const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -212,15 +225,110 @@ Be comprehensive but avoid redundancy. Focus on actionable, interconnected conce
       };
     });
 
+    // ── Cross-graph link inference ──────────────────────────────────────────
+    // After extracting new nodes, ask the AI: do any of the new nodes have 
+    // real-world relationships to existing graph nodes not in this message?
+    const crossEdges = await inferCrossGraphLinks(nodes, existingNodes, nodeMap, userId);
+
     return {
       nodes,
-      edges,
+      edges: [...edges, ...crossEdges],
       conflicts: conflicts.length > 0 ? conflicts : undefined,
       suggestions: suggestions.length > 0 ? suggestions : undefined,
     };
+
   } catch (error) {
     console.error("Entity extraction error:", error);
     throw error; // Rethrow so the UI can show the actual error message
+  }
+}
+
+/**
+ * Second AI pass: given newly extracted nodes and all existing graph nodes,
+ * find any real-world semantic relationships between them.
+ * E.g. SpaceX → targets → Solar System even though that was never stated in the same message.
+ */
+async function inferCrossGraphLinks(
+  newNodes: GraphNode[],
+  existingNodes: GraphNode[],
+  nodeMap: Map<string, string>,
+  userId: string
+): Promise<GraphEdge[]> {
+  // Only run if both sides have nodes to compare
+  if (newNodes.length === 0 || existingNodes.length === 0) return [];
+
+  const newLabels = newNodes.map((n) => `${n.label} (${n.type})`).join(', ');
+  const existingLabels = existingNodes
+    .slice(0, 20) // cap to keep prompt small
+    .map((n) => `${n.label} (${n.type})`)
+    .join(', ');
+
+  const prompt = `You are a Knowledge Graph Link Inference Engine.
+
+NEWLY ADDED NODES: ${newLabels}
+
+EXISTING NODES IN GRAPH: ${existingLabels}
+
+TASK: Identify any meaningful real-world relationships between the NEWLY ADDED nodes and the EXISTING nodes.
+For example: "SpaceX" (aerospace company) relates to "Solar System" because SpaceX operates in space.
+Another example: "Elon Musk" relates to "Earth" because he is a human being that lives on Earth.
+
+RULES:
+- Only create edges if a genuine, meaningful relationship exists.
+- Use the EXACT label strings (case-sensitive) for source and target.
+- Do NOT create trivial or forced connections.
+- Return an EMPTY array if no meaningful connections exist.
+- Do NOT include any markdown, only return raw JSON.
+
+Return ONLY this JSON:
+{
+  "edges": [
+    { "source": "exact label of new node", "target": "exact label of existing node", "label": "relationship description", "type": "relates_to" }
+  ]
+}`;
+
+  try {
+    const content = await createGroqChatCompletion(prompt, 0.2, 0.6);
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return [];
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const rawEdges = Array.isArray(parsed.edges) ? parsed.edges : [];
+
+    return rawEdges
+      .map((e: any) => {
+        // Build a combined map of new + existing nodes
+        const allNodes = [...newNodes, ...existingNodes];
+        const findId = (label: string) => {
+          const found = allNodes.find(
+            (n) => n.label.toLowerCase() === label.toLowerCase()
+          );
+          return found?.id || nodeMap.get(label.toLowerCase()) || null;
+        };
+
+        const sourceId = findId(e.source);
+        const targetId = findId(e.target);
+
+        if (!sourceId || !targetId) return null;
+
+        return {
+          id: crypto.randomUUID(),
+          source: sourceId,
+          target: targetId,
+          label: e.label,
+          type: (e.type || 'relates_to') as 'relates_to' | 'is_a' | 'depends_on' | 'similar_to',
+          confidence: 0.7,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: userId,
+          metadata: {},
+        } as GraphEdge;
+      })
+      .filter((e: GraphEdge | null): e is GraphEdge => e !== null);
+  } catch {
+    // Cross-graph inference is best-effort — never crash the main flow
+    console.warn('[AI] Cross-graph link inference failed, skipping.');
+    return [];
   }
 }
 

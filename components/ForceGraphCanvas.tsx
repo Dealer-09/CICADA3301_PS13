@@ -157,17 +157,15 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
         graphData={graphData}
         nodeLabel="label"
         nodeColor={(node: any) => {
-          if (highlightedNodeIds.size > 0) {
-            return highlightedNodeIds.has(node.id) ? node.color : '#374151'; // Dim unhighlighted
-          }
+          if (selectedType) return node.type === selectedType ? node.color : '#1f2937';
+          if (highlightedNodeIds.size > 0) return highlightedNodeIds.has(node.id) ? node.color : '#374151';
           return node.color;
         }}
         nodeRelSize={1}
         linkColor={(link: any) => {
-          if (highlightedEdgeIds.size > 0) {
-            return highlightedEdgeIds.has(link.id) ? '#fbbf24' : '#374151'; // Gold for highlighted, dim otherwise
-          }
-          return 'rgba(156, 163, 175, 0.4)'; // Default line color
+          if (selectedType) return 'rgba(31, 41, 55, 0.2)'; // Very dim #1f2937
+          if (highlightedEdgeIds.size > 0) return highlightedEdgeIds.has(link.id) ? '#fbbf24' : '#374151';
+          return 'rgba(156, 163, 175, 0.4)';
         }}
         linkWidth={(link: any) => (highlightedEdgeIds.has(link.id) ? 3 : 1)}
         linkDirectionalArrowLength={3.5}
@@ -175,6 +173,8 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
         linkCurvature={0.2}
         linkCanvasObjectMode={() => 'after'}
         linkCanvasObject={(link: any, ctx, globalScale) => {
+          // Do not draw text labels if a type is selected and the rest is dimmed
+          if (selectedType) return;
           const start = link.source;
           const end = link.target;
 
@@ -233,11 +233,28 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
         onNodeClick={handleNodeClick}
         onLinkClick={handleLinkClick}
         backgroundColor="#111827"
+        onEngineStop={() => fgRef.current?.zoomToFit(400, 60)}
         nodeCanvasObject={(node: any, ctx, globalScale) => {
           const size = node.size || 6;
           
+          const isPathHighlighted = highlightedNodeIds.size > 0 && highlightedNodeIds.has(node.id);
+          
+          // Helper to match Zep types with our old legacy graph data
+          const isTypeMatch = (nType: string, sType: string) => {
+            if (nType === sType) return true;
+            if (sType === 'Event' && nType === 'concept') return true;
+            if (sType === 'Entity' && nType === 'definition') return true;
+            if (sType === 'Object' && nType === 'entity') return true;
+            if (sType === 'Topic' && nType === 'relationship') return true;
+            return false;
+          };
+
+          const isTypeHighlighted = selectedType && isTypeMatch(node.type, selectedType);
+          const isHighlighted = isPathHighlighted || isTypeHighlighted;
+          const isDimmed = (highlightedNodeIds.size > 0 && !isPathHighlighted) || (selectedType && !isTypeHighlighted);
+          
           // Draw Highlight Halo
-          if (highlightedNodeIds.size > 0 && highlightedNodeIds.has(node.id)) {
+          if (isHighlighted) {
             ctx.beginPath();
             ctx.arc(node.x, node.y, size + 4, 0, 2 * Math.PI, false);
             ctx.fillStyle = '#fbbf24'; // Gold halo
@@ -253,7 +270,7 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
           // Draw Node Circle
           ctx.beginPath();
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
-          ctx.fillStyle = nodeColor(node);
+          ctx.fillStyle = isDimmed ? (selectedType ? '#1f2937' : '#374151') : node.color;
           ctx.fill();
 
           // Node Text (Below circle)
@@ -262,24 +279,16 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
           ctx.font = `${fontSize}px Sans-Serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillStyle = '#f3f4f6';
+          ctx.fillStyle = isDimmed ? '#4b5563' : '#f3f4f6';
           
-          // Only show labels when zoomed in somewhat, or if it's a huge central node
-          if (globalScale > 1.5 || size > 15) { 
+          // Only show labels when zoomed in somewhat, or if it's a huge central node, or highlighted
+          if (globalScale > 1.5 || size > 15 || isHighlighted) { 
             ctx.fillText(label, node.x, node.y + size + 6);
           }
         }}
       />
     </div>
   );
-
-  // Helper for dynamic node coloring in canvas
-  function nodeColor(node: any) {
-    if (highlightedNodeIds.size > 0) {
-      return highlightedNodeIds.has(node.id) ? node.color : '#374151';
-    }
-    return node.color;
-  }
 };
 
 export default ForceGraphCanvas;
