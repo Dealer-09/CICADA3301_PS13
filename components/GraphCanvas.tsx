@@ -18,7 +18,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useGraphStore } from '@/store/graphStore';
 import { GraphEdge } from '@/types/graph';
-import { emitNodeUpdate, emitEdgeUpdate } from '@/lib/ws/client';
+import { emitNodeUpdate, emitEdgeUpdate, emitEdgeRemoved } from '@/lib/ws/client';
 import ConceptNode from './nodes/ConceptNode';
 import DefinitionNode from './nodes/DefinitionNode';
 
@@ -163,6 +163,23 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
     });
   }, [onNodesChange, graphNodes, updateNode]);
 
+  const handleEdgesDelete = useCallback(async (deletedEdges: Edge[]) => {
+    for (const edge of deletedEdges) {
+      try {
+        const response = await fetch(`/api/graph/edge/${edge.id}`, {
+          method: 'DELETE',
+        });
+        
+        if (response.ok) {
+          emitEdgeRemoved(edge.id);
+          console.log(`[Edge] Deleted edge: ${edge.id}`);
+        }
+      } catch (error) {
+        console.error('Failed to delete edge:', error);
+      }
+    }
+  }, []);
+
   const handleNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
       setSelectedNode(node.id);
@@ -200,6 +217,7 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         edges={edges}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
+        onEdgesDelete={handleEdgesDelete}
         onConnect={handleConnect}
         onNodeClick={handleNodeClick}
         nodeTypes={nodeTypes}

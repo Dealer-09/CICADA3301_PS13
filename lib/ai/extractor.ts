@@ -107,18 +107,34 @@ Be comprehensive but avoid redundancy. Focus on actionable, interconnected conce
 
     const parsed = JSON.parse(jsonMatch[0]);
 
-    // Create nodes with UUIDs
+    // Create nodes with UUIDs, but deduplicate against existing labels
     const nodeMap = new Map<string, string>();
-    const nodes: GraphNode[] = parsed.nodes.map((n: unknown) => {
+    const nodes: GraphNode[] = [];
+    
+    // First, populate nodeMap with existing nodes so we can link to them
+    existingNodes.forEach(n => {
+      nodeMap.set(n.label.toLowerCase(), n.id);
+    });
+
+    for (const n of parsed.nodes) {
       const node = n as {
         label: string;
         type: string;
         description?: string;
         confidence?: number;
       };
+
+      const normalizedLabel = node.label.toLowerCase();
+      
+      // If node already exists, just map the label to the existing ID and skip creation
+      if (nodeMap.has(normalizedLabel)) {
+        continue;
+      }
+
       const id = crypto.randomUUID();
-      nodeMap.set(node.label, id);
-      return {
+      nodeMap.set(normalizedLabel, id);
+      
+      nodes.push({
         id,
         label: node.label,
         type: node.type as "concept" | "definition" | "entity" | "relationship",
@@ -128,8 +144,8 @@ Be comprehensive but avoid redundancy. Focus on actionable, interconnected conce
         updatedAt: new Date().toISOString(),
         createdBy: userId,
         metadata: {},
-      };
-    });
+      });
+    }
 
     // Create edges using node map
     const edges: GraphEdge[] = (parsed.edges || []).map((e: unknown) => {
@@ -140,10 +156,13 @@ Be comprehensive but avoid redundancy. Focus on actionable, interconnected conce
         type: string;
         confidence?: number;
       };
+      
+      const sourceId = nodeMap.get(edge.source.toLowerCase()) || edge.source;
+      const targetId = nodeMap.get(edge.target.toLowerCase()) || edge.target;
       return {
         id: crypto.randomUUID(),
-        source: nodeMap.get(edge.source) || edge.source,
-        target: nodeMap.get(edge.target) || edge.target,
+        source: sourceId,
+        target: targetId,
         label: edge.label,
         type: edge.type || "relates_to",
         confidence: edge.confidence || 0.8,

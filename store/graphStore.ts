@@ -133,6 +133,10 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
         edges: s.edges.map((e) => (e.id === edge.id ? edge : e)),
         version: s.version + 1,
       }));
+    } else if (message.type === "node_removed") {
+      state.removeNode(message.payload as string);
+    } else if (message.type === "edge_removed") {
+      state.removeEdge(message.payload as string);
     }
   },
 

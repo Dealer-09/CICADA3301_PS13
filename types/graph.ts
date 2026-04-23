@@ -57,8 +57,8 @@ export interface SuggestionItem {
 }
 
 export interface RealtimeSyncMessage {
-  type: "node_added" | "node_updated" | "edge_added" | "edge_updated" | "conflict_detected";
-  payload: GraphNode | GraphEdge | ConflictItem;
+  type: "node_added" | "node_updated" | "node_removed" | "edge_added" | "edge_updated" | "edge_removed" | "conflict_detected";
+  payload: GraphNode | GraphEdge | ConflictItem | string;
   timestamp: string;
   userId: string;
 }

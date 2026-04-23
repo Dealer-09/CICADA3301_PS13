@@ -6,8 +6,10 @@ let socket: Socket | null = null;
 interface SyncHandler {
   onNodeUpdate: (node: GraphNode) => void;
   onNodeAdded: (node: GraphNode) => void;
+  onNodeRemoved: (nodeId: string) => void;
   onEdgeUpdate: (edge: GraphEdge) => void;
   onEdgeAdded: (edge: GraphEdge) => void;
+  onEdgeRemoved: (edgeId: string) => void;
   onRemoteMessage: (message: RealtimeSyncMessage) => void;
   onConnect: () => void;
   onDisconnect: () => void;
@@ -59,6 +61,10 @@ export function initializeWebSocket(
     handlers.onNodeAdded?.(node);
   });
 
+  socket.on("node_removed", (nodeId: string) => {
+    handlers.onNodeRemoved?.(nodeId);
+  });
+
   // edge_update — a remote user updated an existing edge
   socket.on("edge_update", (edge: GraphEdge) => {
     handlers.onEdgeUpdate?.(edge);
@@ -67,6 +73,10 @@ export function initializeWebSocket(
   // edge_added — a remote user created a new edge
   socket.on("edge_added", (edge: GraphEdge) => {
     handlers.onEdgeAdded?.(edge);
+  });
+
+  socket.on("edge_removed", (edgeId: string) => {
+    handlers.onEdgeRemoved?.(edgeId);
   });
 
   socket.on("sync_message", (message: RealtimeSyncMessage) => {
@@ -109,6 +119,12 @@ export function emitNodeAdded(node: GraphNode): void {
   }
 }
 
+export function emitNodeRemoved(nodeId: string): void {
+  if (socket && socket.connected) {
+    socket.emit("node_removed", nodeId);
+  }
+}
+
 export function emitEdgeUpdate(edge: GraphEdge): void {
   if (socket && socket.connected) {
     socket.emit("edge_update", edge);
@@ -119,6 +135,12 @@ export function emitEdgeUpdate(edge: GraphEdge): void {
 export function emitEdgeAdded(edge: GraphEdge): void {
   if (socket && socket.connected) {
     socket.emit("edge_added", edge);
+  }
+}
+
+export function emitEdgeRemoved(edgeId: string): void {
+  if (socket && socket.connected) {
+    socket.emit("edge_removed", edgeId);
   }
 }
 

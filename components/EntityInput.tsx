@@ -16,7 +16,7 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
   const [error, setError] = useState<string | null>(null);
   const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
-  const { addNode, addEdge, nodes } = useGraphStore();
+  const { addNode, addEdge, nodes, clear: clearGraph } = useGraphStore();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleExtract = async () => {
@@ -70,9 +70,29 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
         setSuggestions(result.suggestions!);
         console.log('Suggestions:', result.suggestions);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!confirm('Are you sure you want to completely wipe the graph? This cannot be undone.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/graph/reset', { method: 'POST' });
+      if (response.ok) {
+        clearGraph();
+        setInput('');
+        setConflicts([]);
+        setSuggestions([]);
+      } else {
+        alert('Failed to reset graph');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Extraction error:', err);
+      console.error('Reset error:', err);
     } finally {
       setLoading(false);
     }
@@ -119,11 +139,25 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => setInput('')}
+          onClick={() => {
+            setInput('');
+            setConflicts([]);
+            setSuggestions([]);
+          }}
           disabled={loading}
           className="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 disabled:bg-gray-200 transition"
         >
           Clear
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleReset}
+          disabled={loading}
+          className="px-6 py-2 bg-red-100 text-red-600 border border-red-200 rounded-lg font-semibold hover:bg-red-200 disabled:opacity-50 transition ml-auto"
+        >
+          🗑️ Reset Graph
         </motion.button>
       </div>
 

@@ -72,6 +72,14 @@ export default function KnowledgeGraphPage() {
             userId: 'remote',
           });
         },
+        onNodeRemoved: (nodeId) => {
+          applyRemoteUpdate({
+            type: 'node_removed',
+            payload: nodeId,
+            timestamp: new Date().toISOString(),
+            userId: 'remote',
+          });
+        },
         // Remote user updated an existing edge
         onEdgeUpdate: (edge) => {
           applyRemoteUpdate({
@@ -86,6 +94,14 @@ export default function KnowledgeGraphPage() {
           applyRemoteUpdate({
             type: 'edge_added',
             payload: edge,
+            timestamp: new Date().toISOString(),
+            userId: 'remote',
+          });
+        },
+        onEdgeRemoved: (edgeId) => {
+          applyRemoteUpdate({
+            type: 'edge_removed',
+            payload: edgeId,
             timestamp: new Date().toISOString(),
             userId: 'remote',
           });
