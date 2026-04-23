@@ -3,7 +3,7 @@
 export interface GraphNode {
   id: string;
   label: string;
-  type: "concept" | "definition" | "entity" | "relationship";
+  type: "Entity" | "Event" | "Location" | "Object" | "Organization" | "Topic" | "User" | "concept" | "definition" | "entity" | "relationship";
   description?: string;
   metadata?: Record<string, unknown>;
   createdAt: string;

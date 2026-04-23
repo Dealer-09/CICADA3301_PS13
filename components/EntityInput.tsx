@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useGraphStore } from '@/store/graphStore';
 import { ExtractionResult, ConflictItem, SuggestionItem } from '@/types/graph';
 import { emitNodeAdded, emitEdgeAdded } from '@/lib/ws/client';
@@ -14,10 +14,10 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
   const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
   const { addNode, addEdge, nodes, clear: clearGraph } = useGraphStore();
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleExtract = async () => {
     if (!input.trim()) {
@@ -79,6 +79,7 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
     }
 
     setLoading(true);
+    setIsResetting(true);
     try {
       const response = await fetch('/api/graph/reset', { method: 'POST' });
       if (response.ok) {
@@ -92,86 +93,67 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
     } catch (err) {
       console.error('Reset error:', err);
     } finally {
+      setIsResetting(false);
       setLoading(false);
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg shadow-lg border border-indigo-200"
-    >
-      <h2 className="text-xl font-bold text-gray-800 mb-4">🧠 Input Your Knowledge</h2>
-      
-      <textarea
-        ref={inputRef}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="Paste your notes, article, or concept description here. The AI will automatically extract concepts and relationships..."
-        className="w-full h-32 p-4 border-2 border-indigo-200 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 resize-none"
-        disabled={loading}
-      />
-
-      {error && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-red-600 text-sm mt-2"
-        >
-          ❌ {error}
-        </motion.p>
-      )}
-
-      <div className="flex gap-4 mt-4">
+    <div className="w-full mt-auto relative bg-[#111827]">
+      <div className="flex items-center gap-2 bg-[#1f2937] border border-gray-700 rounded-lg p-2 focus-within:border-purple-500 transition-colors">
+        <div className="text-gray-400 pl-2 cursor-pointer" onClick={handleReset} title="Reset Graph">
+          <svg className="w-5 h-5 hover:text-red-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleExtract();
+            }
+          }}
+          disabled={loading || isResetting}
+          placeholder="Enter your message content here..."
+          className="flex-1 bg-transparent text-gray-200 placeholder-gray-500 focus:outline-none py-2 px-2"
+        />
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleExtract}
           disabled={loading || !input.trim()}
-          className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+          className={`p-2 rounded-md flex items-center justify-center transition-colors ${
+            loading || !input.trim() ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-[#6b21a8] text-white hover:bg-purple-600'
+          }`}
         >
-          {loading ? '⏳ Extracting...' : '✨ Extract Concepts'}
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => {
-            setInput('');
-            setConflicts([]);
-            setSuggestions([]);
-          }}
-          disabled={loading}
-          className="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 disabled:bg-gray-200 transition"
-        >
-          Clear
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleReset}
-          disabled={loading}
-          className="px-6 py-2 bg-red-100 text-red-600 border border-red-200 rounded-lg font-semibold hover:bg-red-200 disabled:opacity-50 transition ml-auto"
-        >
-          🗑️ Reset Graph
+          {loading || isResetting ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <svg className="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+            </svg>
+          )}
         </motion.button>
       </div>
 
-      <p className="text-gray-600 text-sm mt-4">
-        💡 Tip: The more detailed and structured your input, the better the concept extraction.
-      </p>
+      {error && (
+        <div className="absolute -top-12 left-0 right-0 p-2 bg-red-900/50 border border-red-700 rounded text-red-200 text-sm text-center">
+          {error}
+        </div>
+      )}
 
       {/* Extracted Data Feedback */}
       {conflicts.length > 0 && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          className="mt-4 p-4 bg-orange-50 border border-orange-300 rounded-lg"
+          className="mt-4 p-4 bg-orange-900/50 border border-orange-700 rounded-lg text-orange-200"
         >
-          <h3 className="font-bold text-orange-800 mb-2">⚠️ Conflicts Detected</h3>
-          <ul className="list-disc pl-5 space-y-1 text-sm text-orange-700">
+          <h3 className="font-bold mb-2">⚠️ Conflicts Detected</h3>
+          <ul className="list-disc pl-5 space-y-1 text-sm">
             {conflicts.map((c, i) => (
               <li key={i}>{c.description}</li>
             ))}
@@ -183,10 +165,10 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          className="mt-4 p-4 bg-blue-50 border border-blue-300 rounded-lg"
+          className="mt-4 p-4 bg-blue-900/50 border border-blue-700 rounded-lg text-blue-200"
         >
-          <h3 className="font-bold text-blue-800 mb-2">💡 Expansions Suggested</h3>
-          <ul className="list-disc pl-5 space-y-1 text-sm text-blue-700">
+          <h3 className="font-bold mb-2">💡 Expansions Suggested</h3>
+          <ul className="list-disc pl-5 space-y-1 text-sm">
             {suggestions.map((s, i) => (
               <li key={i}>
                 <span className="font-semibold">{s.suggestedNode?.label || s.type}:</span> {s.description}
@@ -195,7 +177,7 @@ const EntityInput: React.FC<EntityInputProps> = ({ onExtracted }) => {
           </ul>
         </motion.div>
       )}
-    </motion.div>
+    </div>
   );
 };
 

@@ -92,77 +92,73 @@ const NodeDetails: React.FC<NodeDetailsProps> = ({ nodeId, onClose }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg shadow-lg border border-orange-200 p-6"
+      className="bg-[#1f2937] rounded-lg shadow-xl border border-gray-700 overflow-hidden h-full flex flex-col"
     >
-      <div className="flex items-start justify-between mb-4">
-        <h3 className="text-lg font-bold text-gray-800">📝 Node Details</h3>
+      <div className="bg-[#111827] px-6 py-4 flex justify-between items-center border-b border-gray-700">
+        <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
+          <span className="text-2xl">🧠</span> {node.label}
+        </h2>
         <button
           onClick={onClose}
-          className="text-gray-500 hover:text-gray-700 text-xl"
+          className="p-1 hover:bg-gray-800 rounded-full transition-colors text-gray-400 hover:text-white"
         >
-          ✕
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
         </button>
       </div>
 
-      {/* Node Info */}
-      <div className="mb-4 pb-4 border-b border-orange-200">
-        <p className="text-sm text-gray-600 mb-2">
-          <span className="font-bold">Label:</span> {node.label}
-        </p>
-        <p className="text-sm text-gray-600 mb-2">
-          <span className="font-bold">Type:</span> {node.type}
-        </p>
-        {node.description && (
-          <p className="text-sm text-gray-600 mb-2">
-            <span className="font-bold">Description:</span> {node.description}
-          </p>
-        )}
-        <p className="text-sm text-gray-600">
-          <span className="font-bold">Confidence:</span> {(node.confidence * 100).toFixed(0)}%
-        </p>
-      </div>
-
-      {/* Connected Nodes */}
-      {connectedNodes.length > 0 && (
-        <div className="mb-4">
-          <h4 className="font-bold text-gray-800 mb-2">🔗 Connected Concepts</h4>
-          <div className="space-y-2">
-            {connectedNodes.map((cn) => (
-              <div key={cn.id} className="text-sm bg-white rounded px-3 py-2 border border-orange-100">
-                <p className="font-semibold text-orange-700">{cn.label}</p>
-                <p className="text-gray-600 text-xs">{cn.type}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Suggestions */}
-      {loadingSuggestions && (
-        <p className="text-sm text-gray-600 text-center py-2">Loading suggestions...</p>
-      )}
-      {suggestions && suggestions.length > 0 && (
+      <div className="p-6 space-y-6 flex-1 overflow-y-auto">
         <div>
-          <h4 className="font-bold text-gray-800 mb-2">💡 Suggested Expansions</h4>
-          <div className="space-y-3">
-            {suggestions.slice(0, 3).map((s: SuggestionItem, idx: number) => (
-              <div key={idx} className="bg-white rounded p-3 border border-green-200">
-                <div className="flex justify-between items-start mb-2">
-                  <p className="font-semibold text-green-700">{s.suggestedNode?.label}</p>
-                  <button
-                    onClick={() => handleAcceptSuggestion(s, idx)}
-                    disabled={acceptingIdx === idx}
-                    className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 transition"
-                  >
-                    {acceptingIdx === idx ? 'Adding...' : '+ Add to Graph'}
-                  </button>
-                </div>
-                <p className="text-gray-600 text-xs">{s.description}</p>
-              </div>
-            ))}
-          </div>
+          <span className="inline-block px-3 py-1 bg-gray-800 text-purple-400 text-xs font-bold rounded-full uppercase tracking-wider mb-2 border border-gray-700">
+            {node.type}
+          </span>
+          <p className="text-gray-300 leading-relaxed mt-2">{node.description}</p>
         </div>
-      )}
+
+        {connectedNodes.length > 0 && (
+          <div>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Connections</h3>
+            <div className="space-y-3">
+              {connectedNodes.map((cn) => (
+                <div key={cn.id} className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                  <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                  <span className="font-medium text-gray-200 text-left">{cn.label}</span>
+                  <span className="text-xs text-gray-500 ml-auto">{cn.type}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Suggestions */}
+        {loadingSuggestions && (
+          <p className="text-sm text-gray-500 text-center py-2">Loading suggestions...</p>
+        )}
+        
+        {suggestions && suggestions.length > 0 && (
+          <div>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">💡 Suggested Expansions</h3>
+            <div className="space-y-3">
+              {suggestions.slice(0, 3).map((s: SuggestionItem, idx: number) => (
+                <div key={idx} className="bg-gray-800/50 rounded-lg p-3 border border-gray-700">
+                  <div className="flex justify-between items-start mb-2">
+                    <p className="font-semibold text-purple-400">{s.suggestedNode?.label}</p>
+                    <button
+                      onClick={() => handleAcceptSuggestion(s, idx)}
+                      disabled={acceptingIdx === idx}
+                      className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-600 transition"
+                    >
+                      {acceptingIdx === idx ? 'Adding...' : '+ Add'}
+                    </button>
+                  </div>
+                  <p className="text-gray-400 text-xs">{s.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };

@@ -58,11 +58,12 @@ const PathFinder: React.FC = () => {
     <motion.div
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
-      className="mt-4 space-y-4"
+      className="space-y-4"
     >
+      <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Graph Path Traversal</h3>
       {/* Source Selector */}
       <div>
-        <label className="block text-sm font-bold text-gray-800 mb-2">From:</label>
+        <label className="block text-xs font-bold text-gray-500 mb-1">From:</label>
         <select
           value={sourceId}
           onChange={(e) => {
@@ -70,7 +71,7 @@ const PathFinder: React.FC = () => {
             clearHighlight();
             setResult(null);
           }}
-          className="w-full p-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500"
+          className="w-full p-2 bg-[#1f2937] border border-gray-700 text-gray-200 rounded-lg focus:outline-none focus:border-purple-500"
         >
           <option value="">Select source concept</option>
           {nodes.map((node) => (
@@ -83,7 +84,7 @@ const PathFinder: React.FC = () => {
 
       {/* Target Selector */}
       <div>
-        <label className="block text-sm font-bold text-gray-800 mb-2">To:</label>
+        <label className="block text-xs font-bold text-gray-500 mb-1">To:</label>
         <select
           value={targetId}
           onChange={(e) => {
@@ -91,7 +92,7 @@ const PathFinder: React.FC = () => {
             clearHighlight();
             setResult(null);
           }}
-          className="w-full p-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500"
+          className="w-full p-2 bg-[#1f2937] border border-gray-700 text-gray-200 rounded-lg focus:outline-none focus:border-purple-500"
         >
           <option value="">Select target concept</option>
           {nodes.map((node) => (
@@ -104,11 +105,15 @@ const PathFinder: React.FC = () => {
 
       {/* Search Button */}
       <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
         onClick={handleSearch}
         disabled={loading || !sourceId || !targetId}
-        className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-400 transition"
+        className={`w-full px-4 py-2 rounded-lg font-semibold transition ${
+          loading || !sourceId || !targetId 
+            ? 'bg-gray-800 text-gray-600 cursor-not-allowed' 
+            : 'bg-purple-600 text-white hover:bg-purple-500'
+        }`}
       >
         {loading ? '⏳ Searching...' : '🔍 Find Path'}
       </motion.button>
@@ -118,9 +123,9 @@ const PathFinder: React.FC = () => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="p-3 bg-red-100 border border-red-300 rounded-lg text-red-800 text-sm"
+          className="p-3 bg-red-900/30 border border-red-800 rounded-lg text-red-400 text-sm"
         >
-          ❌ {error}
+          {error}
         </motion.div>
       )}
 
@@ -129,30 +134,26 @@ const PathFinder: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 bg-green-50 border-2 border-green-300 rounded-lg"
+          className="p-4 bg-[#1f2937] border border-purple-500/30 rounded-lg"
         >
-          <h4 className="font-bold text-green-800 mb-3">Path Found! 🎯</h4>
+          <h4 className="font-bold text-purple-400 mb-3">Path Found! 🎯</h4>
           
-          <p className="text-sm text-gray-700 mb-3">
-            <span className="font-bold">Distance:</span> {result.distance} hops
-          </p>
-          
-          <p className="text-sm text-gray-700 mb-3">
-            <span className="font-bold">Confidence:</span> {(result.confidence * 100).toFixed(0)}%
-          </p>
+          <div className="flex gap-4 text-xs text-gray-400 mb-3">
+            <p><span className="font-bold text-gray-300">Distance:</span> {result?.distance} hops</p>
+            <p><span className="font-bold text-gray-300">Confidence:</span> {(result?.confidence ?? 0 * 100).toFixed(0)}%</p>
+          </div>
 
-          <div className="bg-white p-3 rounded border border-green-200 max-h-40 overflow-y-auto">
-            <p className="font-bold text-gray-800 mb-2">Path Flow:</p>
-            <div className="space-y-2">
-              {result.path.map((nodeId, idx) => {
+          <div className="bg-[#111827] p-3 rounded-lg border border-gray-800 max-h-40 overflow-y-auto">
+            <div className="space-y-3">
+              {result?.path.map((nodeId, idx) => {
                 const node = nodes.find((n) => n.id === nodeId);
                 return (
-                  <div key={idx} className="flex items-center gap-2 text-sm">
-                    <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold">
+                  <div key={idx} className="flex items-center gap-3 text-sm">
+                    <span className="bg-purple-900/50 text-purple-400 border border-purple-700/50 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">
                       {idx + 1}
                     </span>
-                    <span className="font-semibold text-gray-800">{node?.label}</span>
-                    {idx < result.path.length - 1 && <span className="text-gray-400">→</span>}
+                    <span className="font-semibold text-gray-200">{node?.label}</span>
+                    {idx < (result?.path.length ?? 0) - 1 && <span className="text-gray-600">→</span>}
                   </div>
                 );
               })}

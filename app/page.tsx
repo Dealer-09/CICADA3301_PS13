@@ -9,7 +9,7 @@ import NodeDetails from '@/components/NodeDetails';
 import PathFinder from '@/components/PathFinder';
 import { motion } from 'framer-motion';
 
-const GraphCanvas = dynamic(() => import('@/components/GraphCanvas'), {
+const ForceGraphCanvas = dynamic(() => import('@/components/ForceGraphCanvas'), {
   ssr: false,
   loading: () => (
     <div className="w-full h-[600px] flex flex-col items-center justify-center bg-indigo-50/50 border border-indigo-100 rounded-lg animate-pulse">
@@ -126,9 +126,9 @@ export default function KnowledgeGraphPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950">
+    <div className="h-screen flex flex-col bg-[#0b101e] text-gray-200 overflow-hidden font-sans">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-indigo-500/30 bg-slate-900/80 backdrop-blur">
+      <header className="flex-none border-b border-gray-800 bg-[#111827]">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <motion.h1
             initial={{ opacity: 0, x: -20 }}
@@ -150,14 +150,14 @@ export default function KnowledgeGraphPage() {
               </p>
             </div>
 
-            <div className="px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/30">
-              <p className="text-sm text-indigo-200">
-                <span className="font-bold">{stats.nodeCount}</span> Concepts
+            <div className="px-4 py-2 rounded-lg bg-gray-800/50 border border-gray-700">
+              <p className="text-sm text-gray-300">
+                <span className="font-bold text-white">{stats.nodeCount}</span> Concepts
               </p>
             </div>
-            <div className="px-4 py-2 rounded-lg bg-purple-500/10 border border-purple-500/30">
-              <p className="text-sm text-purple-200">
-                <span className="font-bold">{stats.edgeCount}</span> Relationships
+            <div className="px-4 py-2 rounded-lg bg-gray-800/50 border border-gray-700">
+              <p className="text-sm text-gray-300">
+                <span className="font-bold text-white">{stats.edgeCount}</span> Relationships
               </p>
             </div>
           </div>
@@ -165,65 +165,44 @@ export default function KnowledgeGraphPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Panel - Input & Details */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-1 space-y-6"
-          >
-            {/* Entity Input */}
-            <EntityInput onExtracted={() => {}} />
+      <main className="flex-1 flex overflow-hidden">
+        {/* Left Panel - Graph Canvas (takes most space like Zep) */}
+        <div className="flex-[2.5] relative border-r border-gray-800">
+          <ForceGraphCanvas onNodeSelect={setSelectedNodeId} />
+        </div>
 
-            {/* Path Search Info */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-lg border border-green-200 p-6"
-            >
-              <h3 className="text-lg font-bold text-gray-800 mb-4">🔍 Path Search</h3>
-              <p className="text-sm text-gray-700 mb-4">
-                Click on a concept node to view its details and discover connections to other concepts in your knowledge graph.
-              </p>
-              <p className="text-xs text-gray-600">
-                The system automatically finds paths and relationships between concepts using multi-hop graph queries.
-              </p>
-            </motion.div>
-
-            {selectedNodeId && (
+        {/* Right Panel - Input & Details */}
+        <div className="flex-1 flex flex-col bg-[#111827] overflow-y-auto">
+          {selectedNodeId ? (
+            <div className="p-6">
               <NodeDetails
                 nodeId={selectedNodeId}
                 onClose={() => setSelectedNodeId(null)}
               />
-            )}
-
-            <PathFinder />
-          </motion.div>
-
-          {/* Right Panel - Graph Canvas */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-2"
-          >
-            <div className="bg-white rounded-lg shadow-2xl border border-indigo-200 overflow-hidden">
-              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
-                <h2 className="text-xl font-bold text-white">Knowledge Graph Visualization</h2>
-                <p className="text-indigo-100 text-sm mt-1">Drag nodes • Click to select • Connect with edges</p>
-              </div>
-              <GraphCanvas onNodeSelect={setSelectedNodeId} />
             </div>
-          </motion.div>
+          ) : (
+            <div className="p-6 flex flex-col h-full space-y-6">
+              {/* Tab Header mock */}
+              <div className="flex gap-4 border-b border-gray-800 pb-2">
+                <button className="text-sm font-semibold text-gray-400 hover:text-white">Threads</button>
+                <button className="text-sm font-semibold text-purple-400 border-b-2 border-purple-400 pb-2">JSON</button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto">
+                {/* List of recent extractions or paths */}
+                <div className="mb-4">
+                  <PathFinder />
+                </div>
+              </div>
+
+              {/* Entity Input handles the extraction */}
+              <div className="pt-4 border-t border-gray-800">
+                <EntityInput onExtracted={() => {}} />
+              </div>
+            </div>
+          )}
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-indigo-500/30 bg-slate-900/50 mt-16">
-        <div className="max-w-7xl mx-auto px-6 py-8 text-center text-indigo-300 text-sm">
-          <p>Real-time collaborative knowledge graph powered by Next.js, React Flow, Neo4j &amp; Groq</p>
-        </div>
-      </footer>
     </div>
   );
 }

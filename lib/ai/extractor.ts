@@ -52,21 +52,24 @@ export async function extractEntitiesAndRelationships(
     .map((n) => `- ${n.label} (${n.type}): ${n.description}`)
     .join("\n");
 
-  const prompt = `You are an expert knowledge graph engine. Extract concepts, definitions, and relationships from the following input text.
+  const prompt = `
+You are a state-of-the-art Knowledge Graph Extraction Engine.
+Extract entities and relationships from the text below and return a structured JSON output.
 
-Input: "${input}"
+IMPORTANT: Use EXACTLY these node types:
+- "Entity" (General concepts, ideas)
+- "Event" (Happenings, actions, periods in time)
+- "Location" (Places, regions)
+- "Object" (Physical or digital items, devices)
+- "Organization" (Companies, groups, agencies)
+- "Topic" (Subjects of discussion, themes)
+- "User" (Specific people, users)
 
-${existingContext ? `Existing concepts in graph:\n${existingContext}\n` : ""}
-
-Respond in JSON format with the following structure:
+FORMAT REQUIREMENTS:
+Return valid JSON only. Do not include markdown formatting like \`\`\`json.
 {
   "nodes": [
-    {
-      "label": "concept name",
-      "type": "concept|definition|entity",
-      "description": "brief description",
-      "confidence": 0.0-1.0
-    }
+    { "label": "concept name", "type": "Entity", "description": "brief description", "confidence": 0.8 }
   ],
   "edges": [
     {
