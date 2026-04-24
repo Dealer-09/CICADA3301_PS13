@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Suspense, useEffect, useMemo, useState, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { useGraphStore } from '@/store/graphStore';
@@ -57,6 +57,20 @@ function DashboardContent() {
   const [threadInput, setThreadInput] = useState('');
   const [threadLoading, setThreadLoading] = useState(false);
   const threadEndRef = useRef<HTMLDivElement>(null);
+
+  // Rate-limit cooldown state (frontend layer)
+  const [threadCooldown, setThreadCooldown] = useState(0); // seconds remaining
+  const [jsonCooldown, setJsonCooldown] = useState(0);
+
+  // Cooldown tick — counts down every second
+  useEffect(() => {
+    if (threadCooldown <= 0 && jsonCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setThreadCooldown((c) => Math.max(0, c - 1));
+      setJsonCooldown((c) => Math.max(0, c - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [threadCooldown > 0, jsonCooldown > 0]);
 
   // JSON tab state
   const [jsonInput, setJsonInput] = useState('');
@@ -143,7 +157,7 @@ function DashboardContent() {
 
   // THREADS: Extract from natural language → show as chat bubbles
   const handleThreadSubmit = async () => {
-    if (!threadInput.trim() || threadLoading) return;
+    if (!threadInput.trim() || threadLoading || threadCooldown > 0) return;
     const userText = threadInput.trim();
     setThreadInput('');
     setThreadLoading(true);
@@ -164,6 +178,17 @@ function DashboardContent() {
         body: JSON.stringify({ input: userText, existingNodes: nodes, workspaceId }),
       });
 
+      if (response.status === 429) {
+        const data = await response.json();
+        setThreadCooldown(data.retryAfter || 10);
+        setThreadMessages((prev) => [...prev, {
+          id: crypto.randomUUID(), role: 'assistant',
+          content: `Rate limited — please wait ${data.retryAfter || 10}s before sending again.`,
+          addedToGraph: false, timestamp: new Date(),
+        }]);
+        setThreadLoading(false);
+        return;
+      }
       if (!response.ok) throw new Error('Extraction failed');
       const result = (await response.json()) as ExtractionResult;
       const added = result.nodes.length > 0 || result.edges.length > 0;
@@ -201,6 +226,7 @@ function DashboardContent() {
       }]);
     } finally {
       setThreadLoading(false);
+      setThreadCooldown(3); // 3-second frontend cooldown between sends
     }
   };
 
@@ -251,6 +277,13 @@ function DashboardContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodes: stampedNodes, edges: stampedEdges, workspaceId }),
       });
+      if (res.status === 429) {
+        const data = await res.json();
+        setJsonCooldown(data.retryAfter || 10);
+        setJsonError(`Rate limited — please wait ${data.retryAfter || 10}s before injecting again.`);
+        setJsonLoading(false);
+        return;
+      }
       if (!res.ok) throw new Error('Failed to persist JSON to database');
 
       // Update local store
@@ -265,6 +298,7 @@ function DashboardContent() {
       setJsonError(e.message || 'Invalid JSON');
     } finally {
       setJsonLoading(false);
+      setJsonCooldown(5); // 5-second frontend cooldown between injects
     }
   };
 
@@ -508,15 +542,20 @@ function DashboardContent() {
                       />
                       <button
                         onClick={handleThreadSubmit}
-                        disabled={threadLoading || !threadInput.trim()}
-                        className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${threadLoading || !threadInput.trim()
+                        disabled={threadLoading || !threadInput.trim() || threadCooldown > 0}
+                        className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${threadLoading || !threadInput.trim() || threadCooldown > 0
                             ? 'text-white/10 cursor-not-allowed'
                             : 'bg-white text-[#050505] hover:bg-white/90'
                           }`}
+                        title={threadCooldown > 0 ? `Wait ${threadCooldown}s` : 'Send'}
                       >
-                        <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                        </svg>
+                        {threadCooldown > 0 ? (
+                          <span className="text-xs font-mono w-4 h-4 flex items-center justify-center text-white/30">{threadCooldown}</span>
+                        ) : (
+                          <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -538,13 +577,13 @@ function DashboardContent() {
                   )}
                   <button
                     onClick={handleJsonSubmit}
-                    disabled={jsonLoading || !jsonInput.trim()}
-                    className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${jsonLoading || !jsonInput.trim()
+                    disabled={jsonLoading || !jsonInput.trim() || jsonCooldown > 0}
+                    className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${jsonLoading || !jsonInput.trim() || jsonCooldown > 0
                         ? 'bg-white/[0.03] text-white/15 cursor-not-allowed'
                         : 'bg-white text-[#050505] hover:bg-white/90'
                       }`}
                   >
-                    {jsonLoading ? 'Injecting...' : 'Inject into Graph'}
+                    {jsonLoading ? 'Injecting...' : jsonCooldown > 0 ? `Wait ${jsonCooldown}s...` : 'Inject into Graph'}
                   </button>
 
                   {/* Path Traversal lives in JSON tab */}

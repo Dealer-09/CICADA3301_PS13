@@ -1,4 +1,5 @@
 import { createNode, createEdge } from '@/lib/db/neo4j';
+import { rateLimit } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -7,6 +8,10 @@ import { NextRequest, NextResponse } from 'next/server';
  * on the dashboard to make manually-added data durable.
  */
 export async function POST(request: NextRequest) {
+  // Rate limit: 10 injections per 60 seconds per user
+  const limited = rateLimit(request, { name: 'inject', maxRequests: 10, windowSeconds: 60 });
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const { nodes = [], edges = [], workspaceId } = body;

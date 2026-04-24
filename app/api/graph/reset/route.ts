@@ -1,7 +1,12 @@
 import { initializeDatabase } from '@/lib/db/neo4j';
+import { rateLimit } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 2 resets per 60 seconds per user
+  const limited = rateLimit(request, { name: 'reset', maxRequests: 2, windowSeconds: 60 });
+  if (limited) return limited;
+
   const driver = initializeDatabase();
   const session = driver.session();
   

@@ -1,8 +1,13 @@
 import { extractEntitiesAndRelationships, resolveConflict } from '@/lib/ai/extractor';
 import { createNode, createEdge } from '@/lib/db/neo4j';
+import { rateLimit } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 8 extractions per 60 seconds per user
+  const limited = rateLimit(request, { name: 'extract', maxRequests: 8, windowSeconds: 60 });
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const { input, existingNodes = [], workspaceId } = body;

@@ -1,8 +1,13 @@
 import { createNode, createEdge } from '@/lib/db/neo4j';
+import { rateLimit } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 import { GraphNode, GraphEdge, SuggestionItem } from '@/types/graph';
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 12 suggestion accepts per 60 seconds per user
+  const limited = rateLimit(request, { name: 'suggestion', maxRequests: 12, windowSeconds: 60 });
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const { suggestion, workspaceId } = body as { suggestion: SuggestionItem; workspaceId?: string };

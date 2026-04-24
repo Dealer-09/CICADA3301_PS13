@@ -1,8 +1,13 @@
 import { suggestNodeExpansion } from '@/lib/ai/extractor';
 import { getAllNodes, getAllEdges } from '@/lib/db/neo4j';
+import { rateLimit } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 6 expansion requests per 60 seconds per user
+  const limited = rateLimit(request, { name: 'expand', maxRequests: 6, windowSeconds: 60 });
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const { nodeId, nodeLabel, workspaceId } = body;
