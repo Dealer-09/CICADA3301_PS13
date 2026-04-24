@@ -140,7 +140,7 @@ const PathFinder: React.FC = () => {
           
           <div className="flex gap-4 text-xs text-gray-400 mb-3">
             <p><span className="font-bold text-gray-300">Distance:</span> {result?.distance} hops</p>
-            <p><span className="font-bold text-gray-300">Confidence:</span> {(result?.confidence ?? 0 * 100).toFixed(0)}%</p>
+            <p><span className="font-bold text-gray-300">Confidence:</span> {((result?.confidence ?? 0) * 100).toFixed(0)}%</p>
           </div>
 
           <div className="bg-[#111827] p-3 rounded-lg border border-gray-800 max-h-40 overflow-y-auto">

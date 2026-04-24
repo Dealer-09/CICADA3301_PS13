@@ -2,8 +2,8 @@
 
 import dynamic from 'next/dynamic';
 import { Suspense, useEffect, useMemo, useState, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useUser, SignOutButton } from '@clerk/nextjs';
+import { useSearchParams } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import { useGraphStore } from '@/store/graphStore';
 import { initializeWebSocket } from '@/lib/ws/client';
 import NodeDetails from '@/components/NodeDetails';
@@ -11,6 +11,7 @@ import PathFinder from '@/components/PathFinder';
 import { motion, AnimatePresence } from 'framer-motion';
 import { emitNodeAdded, emitEdgeAdded, closeWebSocket } from '@/lib/ws/client';
 import { ExtractionResult } from '@/types/graph';
+import WorkspaceModal from '@/components/WorkspaceModal';
 
 const ForceGraphCanvas = dynamic(() => import('@/components/ForceGraphCanvas'), {
   ssr: false,
@@ -38,13 +39,12 @@ interface ThreadMessage {
 }
 
 function DashboardContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get('workspaceId');
   const { user } = useUser();
 
   const [workspaceInfo, setWorkspaceInfo] = useState<{name: string, inviteCode: string} | null>(null);
-  const [inviteCopied, setInviteCopied] = useState(false);
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [usersOnline, setUsersOnline] = useState(1);
@@ -75,10 +75,11 @@ function DashboardContent() {
 
   useEffect(() => {
     if (!workspaceId) {
-      router.push('/dashboard/workspace');
+      // No workspace selected — open modal automatically
+      setShowWorkspaceModal(true);
       return;
     }
-
+    setShowWorkspaceModal(false);
     // Fetch workspace details (name, invite code)
     fetch('/api/workspace')
       .then(res => res.json())
@@ -88,12 +89,15 @@ function DashboardContent() {
           if (ws) setWorkspaceInfo(ws);
         }
       });
+  }, [workspaceId]);
 
   useEffect(() => {
+    if (!workspaceId) return;
+
     const userId = user?.id || `user-${Math.random().toString(36).slice(2, 8)}`;
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('knowledgeUserId', userId);
-    }
+
+    // Force-close any existing socket so the singleton re-initializes with the new workspaceId
+    closeWebSocket();
 
     initializeWebSocket(
       undefined,
@@ -228,20 +232,23 @@ function DashboardContent() {
 
           <div className="flex gap-3 items-center">
             {workspaceInfo && (
-              <div className="flex items-center gap-2 mr-4">
-                <span className="text-sm font-semibold text-white/80 border-r border-white/20 pr-4">{workspaceInfo.name}</span>
-                <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(workspaceInfo.inviteCode);
-                    setInviteCopied(true);
-                    setTimeout(() => setInviteCopied(false), 2000);
-                  }}
-                  className="text-xs px-3 py-1.5 rounded-full bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 border border-purple-500/30 transition-colors"
-                >
-                  {inviteCopied ? 'Copied!' : 'Invite Others'}
-                </button>
-              </div>
+              <span className="text-sm font-semibold text-white/60 border-r border-white/10 pr-4">{workspaceInfo.name}</span>
             )}
+            <button
+              onClick={() => setShowWorkspaceModal(true)}
+              className="text-xs px-3 py-1.5 rounded-full bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 border border-purple-500/30 transition-colors flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-4-4H4a4 4 0 00-4 4v2h5m6-10a4 4 0 100-8 4 4 0 000 8z" />
+              </svg>
+              Workspaces
+            </button>
+            {/* Workspace Modal */}
+            <WorkspaceModal
+              open={showWorkspaceModal}
+              onClose={() => setShowWorkspaceModal(false)}
+              currentWorkspaceId={workspaceId}
+            />
             <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
               <p className="text-sm text-emerald-200">

@@ -9,7 +9,6 @@ const { Server } = require('socket.io');
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = parseInt(process.env.PORT || '3001', 10);
-console.log(port)
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -17,7 +16,10 @@ const handle = app.getRequestHandler();
 // Track connected users: socketId -> { userId, connectedAt }
 const connectedUsers = new Map();
 
-app.prepare().then(() => {
+app.prepare().then(async () => {
+  // Run workspace cleanup on startup (purge workspaces inactive for 7+ days)
+  // Deferred to after the server is listening — see httpServer.listen callback below
+
   const httpServer = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);
@@ -38,7 +40,7 @@ app.prepare().then(() => {
     transports: ['websocket', 'polling'],
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     const userId = socket.handshake.query.userId || `user-${socket.id.slice(0, 6)}`;
     const workspaceId = socket.handshake.query.workspaceId;
 
@@ -62,6 +64,13 @@ app.prepare().then(() => {
 
     console.log(`[Socket.io] ${userId} joined workspace ${workspaceId}.`);
 
+    // Touch workspace activity via internal API (best-effort, non-blocking)
+    fetch(`http://${hostname}:${port}/api/workspace/touch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspaceId }),
+    }).catch(() => {});
+
     // Broadcast updated user count to all clients in the room
     const currentRoom = io.sockets.adapter.rooms.get(workspaceId);
     io.to(workspaceId).emit('users_online', currentRoom ? currentRoom.size : 0);
@@ -69,39 +78,32 @@ app.prepare().then(() => {
     // ── Node events ─────────────────────────────────────────────────────────
     socket.on('node_update', (node) => {
       socket.to(workspaceId).emit('node_update', node);
-      console.log(`[Socket.io] node_update in ${workspaceId} by ${userId}: ${node?.label}`);
     });
 
     socket.on('node_added', (node) => {
       socket.to(workspaceId).emit('node_added', node);
-      console.log(`[Socket.io] node_added in ${workspaceId} by ${userId}: ${node?.label}`);
     });
 
     socket.on('node_removed', (nodeId) => {
       socket.to(workspaceId).emit('node_removed', nodeId);
-      console.log(`[Socket.io] node_removed in ${workspaceId} by ${userId}: ${nodeId}`);
     });
 
     // ── Edge events ─────────────────────────────────────────────────────────
     socket.on('edge_update', (edge) => {
       socket.to(workspaceId).emit('edge_update', edge);
-      console.log(`[Socket.io] edge_update in ${workspaceId} by ${userId}: ${edge?.id}`);
     });
 
     socket.on('edge_added', (edge) => {
       socket.to(workspaceId).emit('edge_added', edge);
-      console.log(`[Socket.io] edge_added in ${workspaceId} by ${userId}: ${edge?.id}`);
     });
 
     socket.on('edge_removed', (edgeId) => {
       socket.to(workspaceId).emit('edge_removed', edgeId);
-      console.log(`[Socket.io] edge_removed in ${workspaceId} by ${userId}: ${edgeId}`);
     });
 
     // ── Generic sync message (for conflict_detected, etc.) ──────────────────
     socket.on('sync_message', (message) => {
       socket.to(workspaceId).emit('sync_message', message);
-      console.log(`[Socket.io] sync_message in ${workspaceId}: ${message?.type}`);
     });
 
     // ── Cursor / presence (bonus: show who is online) ───────────────────────
@@ -128,5 +130,11 @@ app.prepare().then(() => {
       console.log(`   → Next.js  : http://${hostname}:${port}`);
       console.log(`   → Socket.io: ws://${hostname}:${port}`);
       console.log(`   → Mode     : ${dev ? 'development' : 'production'}\n`);
+
+      // Deferred cleanup: call internal API after server is ready
+      fetch(`http://${hostname}:${port}/api/workspace/cleanup`, { method: 'POST' })
+        .then(r => r.json())
+        .then(d => { if (d.deleted > 0) console.log(`[Cleanup] Purged ${d.deleted} inactive workspace(s)`); })
+        .catch(() => {});
     });
 });

@@ -53,7 +53,31 @@ const workspaceSchema = new mongoose.Schema({
   inviteCode: { type: String, required: true, unique: true },
   members: [{ type: String }], // Clerk User IDs
   createdAt: { type: Date, default: Date.now },
+  lastActiveAt: { type: Date, default: Date.now },
 });
 
 // Avoid OverwriteModelError
 export const Workspace = mongoose.models.Workspace || mongoose.model('Workspace', workspaceSchema);
+
+/**
+ * Delete workspaces that haven't been active for more than 7 days.
+ * Called on server startup to auto-purge stale workspaces.
+ */
+export async function cleanupInactiveWorkspaces(): Promise<number> {
+  await dbConnect();
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const result = await Workspace.deleteMany({ lastActiveAt: { $lt: cutoff } });
+  return result.deletedCount || 0;
+}
+
+/**
+ * Touch the lastActiveAt timestamp for a workspace.
+ * Called when a user joins a workspace via socket.
+ */
+export async function touchWorkspaceActivity(workspaceId: string): Promise<void> {
+  await dbConnect();
+  await Workspace.updateOne(
+    { workspaceId },
+    { $set: { lastActiveAt: new Date() } }
+  );
+}

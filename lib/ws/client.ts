@@ -22,8 +22,15 @@ export function initializeWebSocket(
   userId?: string,
   workspaceId?: string
 ): Socket {
+  // If already connected to the same workspace, reuse
   if (socket) {
-    return socket;
+    const currentWsId = socket.io?.opts?.query?.workspaceId;
+    if (currentWsId === workspaceId) {
+      return socket;
+    }
+    // Different workspace — close old connection first
+    socket.disconnect();
+    socket = null;
   }
 
   const endpoint =

@@ -39,7 +39,9 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  const { nodes, edges, highlightedNodeIds, highlightedEdgeIds, setHighlightedPath, clearHighlight } = useGraphStore();
+  const { nodes: rawNodes, edges: rawEdges, highlightedNodeIds, highlightedEdgeIds, setHighlightedPath, clearHighlight } = useGraphStore();
+  const nodes = rawNodes ?? [];
+  const edges = rawEdges ?? [];
 
   // Resize observer to make graph responsive
   useEffect(() => {
@@ -71,7 +73,7 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
   // Format data for react-force-graph
   const graphData = useMemo(() => {
     // Create a fast lookup set for node IDs
-    const nodeIds = new Set(nodes.map(n => n.id));
+    const nodeIds = new Set((nodes ?? []).map(n => n.id));
     
     return {
       nodes: nodes.map(n => {

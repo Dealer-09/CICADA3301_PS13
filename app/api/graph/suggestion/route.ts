@@ -5,7 +5,7 @@ import { GraphNode, GraphEdge, SuggestionItem } from '@/types/graph';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { suggestion } = body as { suggestion: SuggestionItem };
+    const { suggestion, workspaceId } = body as { suggestion: SuggestionItem; workspaceId?: string };
 
     if (!suggestion || !suggestion.suggestedNode || !suggestion.suggestedNode.label) {
       return NextResponse.json(
@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     const newNodeId = crypto.randomUUID();
     const newNode: GraphNode = {
       id: newNodeId,
+      workspaceId,
       label: suggestion.suggestedNode.label,
       type: (suggestion.suggestedNode.type as any) || 'concept',
       description: suggestion.description,
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
     // Create edge connecting source to new node
     const newEdge: GraphEdge = {
       id: crypto.randomUUID(),
+      workspaceId,
       source: suggestion.source,
       target: newNodeId,
       label: 'relates_to',

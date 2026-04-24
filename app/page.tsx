@@ -33,10 +33,6 @@ export default function LandingPage() {
           <Link href="/dashboard" className="text-sm font-medium text-white/60 hover:text-white transition-colors">
             Get Started
           </Link>
-          <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
-          <button className="hidden sm:block text-sm font-semibold px-5 py-2 border border-white/10 rounded-full hover:bg-white hover:text-[#050505] transition-all duration-300">
-            Contact
-          </button>
         </motion.div>
       </nav>
 
@@ -78,9 +74,6 @@ export default function LandingPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
               </svg>
             </Link>
-            <button className="px-8 py-4 text-white/60 hover:text-white font-semibold transition-colors">
-              Read Documentation →
-            </button>
           </motion.div>
         </div>
 

@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { nodeId, nodeLabel } = body;
+    const { nodeId, nodeLabel, workspaceId } = body;
 
     if (!nodeId || !nodeLabel) {
       return NextResponse.json(
@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const nodes = await getAllNodes();
-    const edges = await getAllEdges();
+    const nodes = await getAllNodes(workspaceId);
+    const edges = await getAllEdges(workspaceId);
 
     const suggestions = await suggestNodeExpansion(nodeId, nodeLabel, { nodes, edges });
 

@@ -1,4 +1,4 @@
-import { driver } from '@/lib/db/neo4j';
+import { getDatabase } from '@/lib/db/neo4j';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function DELETE(
@@ -6,10 +6,10 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const { id } = params;
-  const session = driver.session();
+  const db = getDatabase();
+  const session = db.session();
   
   try {
-    // Delete edge by ID (stored in the 'id' property of the relationship)
     await session.run(
       'MATCH ()-[r:RELATES_TO {id: $id}]->() DELETE r',
       { id }
