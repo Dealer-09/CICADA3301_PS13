@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Synapse Knowledge Graph Engine",
-  description: "Advanced AI-powered graph extraction and visualization for complex mental models.",
+  title: "Graphy — Knowledge Graph Engine",
+  description: "AI-powered knowledge graph extraction and real-time collaborative visualization.",
 };
 
 import { ClerkProvider } from '@clerk/nextjs';

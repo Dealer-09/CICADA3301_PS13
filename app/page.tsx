@@ -19,9 +19,9 @@ export default function LandingPage() {
           className="flex items-center gap-2"
         >
           <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-            <span className="text-[#050505] text-lg font-bold leading-none">S</span>
+            <span className="text-[#050505] text-lg font-bold leading-none">G</span>
           </div>
-          <span className="text-xl font-bold tracking-tight uppercase letter-spacing-widest">Synapse</span>
+          <span className="text-xl font-bold tracking-tight uppercase letter-spacing-widest">Graphy</span>
         </motion.div>
 
         <motion.div 
@@ -88,7 +88,7 @@ export default function LandingPage() {
           {[
             {
               title: "Real-time Extraction",
-              desc: "Powered by Llama-3, Synapse extracts complex entities and relationships as you type."
+              desc: "Powered by Llama-3, Graphy extracts complex entities and relationships as you type."
             },
             {
               title: "Neo4j Persistence",
@@ -112,7 +112,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="relative z-10 py-16 px-8 md:px-16 lg:px-24 border-t border-white/5 mt-24">
         <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-          <p className="text-xs text-white/30 uppercase tracking-[0.2em]">© 2024 Synapse Engine — CICADA3301 Project</p>
+          <p className="text-xs text-white/30 uppercase tracking-[0.2em]">© 2025 Graphy — CICADA3301 Project</p>
           <div className="flex gap-8">
             <a href="#" className="text-xs text-white/30 hover:text-white transition-colors uppercase tracking-[0.1em]">Twitter</a>
             <a href="#" className="text-xs text-white/30 hover:text-white transition-colors uppercase tracking-[0.1em]">Github</a>

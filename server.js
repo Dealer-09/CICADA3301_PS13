@@ -126,7 +126,7 @@ app.prepare().then(async () => {
       process.exit(1);
     })
     .listen(port, () => {
-      console.log(`\n🚀 Synapse Knowledge Graph Server ready`);
+      console.log(`\n🔗 Graphy Server ready`);
       console.log(`   → Next.js  : http://${hostname}:${port}`);
       console.log(`   → Socket.io: ws://${hostname}:${port}`);
       console.log(`   → Mode     : ${dev ? 'development' : 'production'}\n`);

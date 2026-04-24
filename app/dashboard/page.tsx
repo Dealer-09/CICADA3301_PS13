@@ -16,16 +16,16 @@ import WorkspaceModal from '@/components/WorkspaceModal';
 const ForceGraphCanvas = dynamic(() => import('@/components/ForceGraphCanvas'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-[#111827] animate-pulse">
+    <div className="w-full h-full flex flex-col items-center justify-center bg-[#050505] animate-pulse">
       <div className="relative w-24 h-24 mb-6">
-        <div className="absolute inset-0 border-4 border-indigo-200 rounded-full"></div>
-        <div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
+        <div className="absolute inset-0 border-4 border-white/10 rounded-full"></div>
+        <div className="absolute inset-0 border-4 border-white/60 rounded-full border-t-transparent animate-spin"></div>
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-2xl">🧠</span>
         </div>
       </div>
-      <p className="text-indigo-300 font-bold text-lg tracking-wide">Initializing Neural Graph...</p>
-      <p className="text-indigo-500 text-sm mt-2">Syncing with Neo4j database</p>
+      <p className="text-white/70 font-bold text-lg tracking-wide">Initializing Neural Graph...</p>
+      <p className="text-white/30 text-sm mt-2">Syncing with Neo4j database</p>
     </div>
   ),
 });
@@ -280,16 +280,16 @@ function DashboardContent() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-[#0b101e] text-gray-200 overflow-hidden font-sans">
+    <div className="h-screen flex flex-col bg-[#050505] text-gray-200 overflow-hidden font-sans">
       {/* Header */}
-      <header className="flex-none border-b border-gray-800 bg-[#111827]">
+      <header className="flex-none border-b border-white/[0.08] bg-[#0a0a0a]">
         <div className="px-6 py-3 flex items-center justify-between">
           <motion.h1
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent"
+            className="text-2xl font-bold text-white tracking-tight"
           >
-            🧠 Synapse Knowledge Graph Engine
+            Graphy
           </motion.h1>
 
           <div className="flex gap-3 items-center">
@@ -298,7 +298,7 @@ function DashboardContent() {
             )}
             <button
               onClick={() => setShowWorkspaceModal(true)}
-              className="text-xs px-3 py-1.5 rounded-full bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 border border-purple-500/30 transition-colors flex items-center gap-1.5"
+              className="text-xs px-3 py-1.5 rounded-full bg-white/[0.05] text-white/60 hover:bg-white/[0.1] border border-white/[0.08] transition-colors flex items-center gap-1.5"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-4-4H4a4 4 0 00-4 4v2h5m6-10a4 4 0 100-8 4 4 0 000 8z" />
@@ -311,17 +311,17 @@ function DashboardContent() {
               onClose={() => setShowWorkspaceModal(false)}
               currentWorkspaceId={workspaceId}
             />
-            <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2">
+            <div className="px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
-              <p className="text-sm text-emerald-200">
-                <span className="font-bold">{usersOnline}</span> {usersOnline === 1 ? 'user' : 'users'} online
+              <p className="text-sm text-white/50">
+                <span className="font-bold text-white/80">{usersOnline}</span> {usersOnline === 1 ? 'user' : 'users'} online
               </p>
             </div>
-            <div className="px-3 py-1.5 rounded-lg bg-gray-800/50 border border-gray-700 text-sm text-gray-300 hidden md:block">
-              <span className="font-bold text-white">{stats.nodeCount}</span> Concepts
+            <div className="px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white/40 hidden md:block">
+              <span className="font-bold text-white/80">{stats.nodeCount}</span> Concepts
             </div>
-            <div className="px-3 py-1.5 rounded-lg bg-gray-800/50 border border-gray-700 text-sm text-gray-300 hidden md:block">
-              <span className="font-bold text-white">{stats.edgeCount}</span> Relationships
+            <div className="px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white/40 hidden md:block">
+              <span className="font-bold text-white/80">{stats.edgeCount}</span> Relationships
             </div>
           </div>
         </div>
@@ -330,7 +330,7 @@ function DashboardContent() {
       {/* Main Content */}
       <main className="flex-1 flex overflow-hidden">
         {/* Graph Canvas (left, takes 2.5x space) */}
-        <div className="flex-[2.5] relative border-r border-gray-800">
+        <div className="flex-[2.5] relative border-r border-white/[0.08]">
           <ForceGraphCanvas
             onNodeSelect={(id) => { setSelectedNodeId(id); setSelectedEdge(null); }}
             onEdgeSelect={(edgeId) => {
@@ -351,49 +351,49 @@ function DashboardContent() {
         </div>
 
         {/* Right Panel */}
-        <div className="flex-1 flex flex-col bg-[#111827] min-w-0">
+        <div className="flex-1 flex flex-col bg-[#0a0a0a] min-w-0">
           {selectedEdge ? (
             <div className="p-4 flex-1 overflow-y-auto">
-              <div className="bg-[#1f2937] rounded-lg border border-gray-700 overflow-hidden">
-                <div className="bg-[#111827] px-5 py-4 flex justify-between items-center border-b border-gray-700">
+              <div className="bg-white/[0.03] rounded-lg border border-white/[0.08] overflow-hidden">
+                <div className="bg-[#0a0a0a] px-5 py-4 flex justify-between items-center border-b border-white/[0.08]">
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Relationship</p>
+                    <p className="text-xs text-white/30 uppercase tracking-wider mb-1">Relationship</p>
                     <h3 className="text-white font-bold text-sm">
                       {nodes.find(n => n.id === selectedEdge.source)?.label || selectedEdge.source}
                       <span className="mx-2 text-gray-500">→</span>
                       {nodes.find(n => n.id === selectedEdge.target)?.label || selectedEdge.target}
                     </h3>
                   </div>
-                  <button onClick={() => setSelectedEdge(null)} className="p-1 hover:bg-gray-800 rounded-full transition-colors text-gray-400 hover:text-white">
+                  <button onClick={() => setSelectedEdge(null)} className="p-1 hover:bg-white/[0.05] rounded-full transition-colors text-white/30 hover:text-white">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="flex items-center gap-3">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase tracking-wide">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/[0.08] text-white/70 border border-white/[0.1] uppercase tracking-wide">
                       {selectedEdge.label}
                     </span>
-                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-700 text-gray-300 border border-gray-600">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/[0.03] text-white/40 border border-white/[0.06]">
                       {selectedEdge.type}
                     </span>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500 uppercase tracking-wide">Confidence</span>
+                      <span className="text-xs text-white/30 uppercase tracking-wide">Confidence</span>
                       <span className="text-sm font-bold text-white">{(selectedEdge.confidence * 100).toFixed(0)}%</span>
                     </div>
-                    <div className="w-full bg-gray-700 rounded-full h-1.5">
-                      <div className="bg-gradient-to-r from-amber-400 to-amber-500 h-1.5 rounded-full" style={{width: `${selectedEdge.confidence * 100}%`}} />
+                    <div className="w-full bg-white/[0.05] rounded-full h-1.5">
+                      <div className="bg-white/60 h-1.5 rounded-full" style={{width: `${selectedEdge.confidence * 100}%`}} />
                     </div>
                   </div>
-                  <div className="pt-2 border-t border-gray-700 space-y-2">
+                  <div className="pt-2 border-t border-white/[0.06] space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-xs text-gray-500">Source</span>
-                      <span className="text-xs text-gray-300 font-mono">{nodes.find(n => n.id === selectedEdge.source)?.label || selectedEdge.source.slice(0,8)}...</span>
+                      <span className="text-xs text-white/30">Source</span>
+                      <span className="text-xs text-white/50 font-mono">{nodes.find(n => n.id === selectedEdge.source)?.label || selectedEdge.source.slice(0,8)}...</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-xs text-gray-500">Target</span>
-                      <span className="text-xs text-gray-300 font-mono">{nodes.find(n => n.id === selectedEdge.target)?.label || selectedEdge.target.slice(0,8)}...</span>
+                      <span className="text-xs text-white/30">Target</span>
+                      <span className="text-xs text-white/50 font-mono">{nodes.find(n => n.id === selectedEdge.target)?.label || selectedEdge.target.slice(0,8)}...</span>
                     </div>
                   </div>
                 </div>
@@ -406,12 +406,12 @@ function DashboardContent() {
           ) : (
             <>
               {/* Tab Bar */}
-              <div className="flex items-center gap-1 px-4 pt-3 pb-0 border-b border-gray-800 flex-shrink-0">
+              <div className="flex items-center gap-1 px-4 pt-3 pb-0 border-b border-white/[0.06] flex-shrink-0">
                 <button
                   onClick={() => setActiveTab('threads')}
                   className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'threads'
-                      ? 'text-white border-b-2 border-purple-400'
-                      : 'text-gray-500 hover:text-gray-300'
+                      ? 'text-white border-b-2 border-white'
+                      : 'text-white/30 hover:text-white/60'
                     }`}
                 >
                   Threads
@@ -419,8 +419,8 @@ function DashboardContent() {
                 <button
                   onClick={() => setActiveTab('json')}
                   className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'json'
-                      ? 'text-purple-400 border-b-2 border-purple-400'
-                      : 'text-gray-500 hover:text-gray-300'
+                      ? 'text-white border-b-2 border-white'
+                      : 'text-white/30 hover:text-white/60'
                     }`}
                 >
                   JSON
@@ -429,7 +429,7 @@ function DashboardContent() {
                   <button
                     onClick={handleResetGraph}
                     title="Clear Graph"
-                    className="text-gray-600 hover:text-red-400 transition p-1"
+                    className="text-white/20 hover:text-red-400 transition p-1"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -444,9 +444,9 @@ function DashboardContent() {
                   {/* Message Feed */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {threadMessages.length === 0 && (
-                      <div className="text-center text-gray-600 text-sm mt-12">
+                      <div className="text-center text-white/20 text-sm mt-12">
                         <p className="text-2xl mb-3">💬</p>
-                        <p className="font-medium text-gray-500">Start a conversation</p>
+                        <p className="font-medium text-white/30">Start a conversation</p>
                         <p className="mt-1">Type natural language below — entities and relationships will be extracted into the graph automatically.</p>
                       </div>
                     )}
@@ -459,19 +459,19 @@ function DashboardContent() {
                           className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
                         >
                           {msg.role === 'assistant' && (
-                            <span className="text-xs text-gray-500 mb-1 ml-1">Assistant</span>
+                            <span className="text-xs text-white/20 mb-1 ml-1">Assistant</span>
                           )}
                           <div
                             className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === 'user'
-                                ? 'bg-purple-600 text-white rounded-br-sm'
-                                : 'bg-[#1f2937] text-gray-300 rounded-bl-sm'
+                                ? 'bg-white text-[#050505] rounded-br-sm'
+                                : 'bg-white/[0.04] text-white/60 rounded-bl-sm'
                               }`}
                           >
                             {msg.content}
                           </div>
                           {msg.role === 'user' && (
-                            <span className={`text-xs mt-1 mr-1 ${msg.addedToGraph ? 'text-emerald-400' : 'text-gray-600'}`}>
-                              {msg.addedToGraph ? '✓ Added to graph' : '— Skipped adding to graph'}
+                            <span className={`text-xs mt-1 mr-1 ${msg.addedToGraph ? 'text-emerald-400' : 'text-white/20'}`}>
+                              {msg.addedToGraph ? '✓ Added to graph' : '— Skipped'}
                             </span>
                           )}
                         </motion.div>
@@ -479,10 +479,10 @@ function DashboardContent() {
                     </AnimatePresence>
                     {threadLoading && (
                       <div className="flex justify-start pl-1">
-                        <div className="bg-[#1f2937] rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5">
-                          <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                          <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                          <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        <div className="bg-white/[0.04] rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5">
+                          <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-2 h-2 bg-white/20 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                         </div>
                       </div>
                     )}
@@ -490,8 +490,8 @@ function DashboardContent() {
                   </div>
 
                   {/* Thread Input Bar */}
-                  <div className="p-3 border-t border-gray-800 flex-shrink-0">
-                    <div className="flex items-center gap-2 bg-[#1f2937] border border-gray-700 rounded-xl px-3 py-2 focus-within:border-purple-500 transition-colors">
+                  <div className="p-3 border-t border-white/[0.06] flex-shrink-0">
+                    <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 focus-within:border-white/20 transition-colors">
                       <input
                         type="text"
                         value={threadInput}
@@ -504,14 +504,14 @@ function DashboardContent() {
                         }}
                         disabled={threadLoading}
                         placeholder="Enter your message content here..."
-                        className="flex-1 bg-transparent text-gray-200 placeholder-gray-500 focus:outline-none text-sm py-1"
+                        className="flex-1 bg-transparent text-white placeholder-white/20 focus:outline-none text-sm py-1"
                       />
                       <button
                         onClick={handleThreadSubmit}
                         disabled={threadLoading || !threadInput.trim()}
                         className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${threadLoading || !threadInput.trim()
-                            ? 'text-gray-600 cursor-not-allowed'
-                            : 'bg-purple-600 text-white hover:bg-purple-500'
+                            ? 'text-white/10 cursor-not-allowed'
+                            : 'bg-white text-[#050505] hover:bg-white/90'
                           }`}
                       >
                         <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -525,37 +525,30 @@ function DashboardContent() {
 
               {/* ── JSON TAB ── */}
               {activeTab === 'json' && (
-                <div className="flex flex-col flex-1 overflow-hidden p-4 gap-3">
-                  <p className="text-xs text-gray-500 flex-shrink-0">
-                    Paste raw JSON with{' '}
-                    <code className="text-purple-400">nodes</code> and{' '}
-                    <code className="text-purple-400">edges</code> arrays to inject directly into the graph.
-                  </p>
+                <div className="flex flex-col flex-1 overflow-hidden p-4 space-y-4">
+                  <p className="text-xs text-white/30">Paste a JSON object with <code className="bg-white/[0.05] px-1.5 py-0.5 rounded">nodes</code> and/or <code className="bg-white/[0.05] px-1.5 py-0.5 rounded">edges</code> arrays.</p>
                   <textarea
                     value={jsonInput}
                     onChange={(e) => { setJsonInput(e.target.value); setJsonError(null); }}
-                    placeholder={`{\n  "nodes": [\n    { "id": "1", "label": "Sun", "type": "Object", "description": "A star" }\n  ],\n  "edges": [\n    { "source": "1", "target": "2", "label": "ORBITS", "type": "relates_to" }\n  ]\n}`}
-                    className="flex-1 bg-[#1f2937] border border-gray-700 text-gray-200 text-xs font-mono rounded-lg p-3 focus:outline-none focus:border-purple-500 resize-none placeholder-gray-600 min-h-0"
-                    spellCheck={false}
+                    placeholder='{"nodes": [{"label": "...", "type": "Entity"}], "edges": []}'
+                    className="w-full h-48 bg-white/[0.02] border border-white/[0.08] rounded-lg p-3 text-sm text-white/70 font-mono resize-none focus:outline-none focus:border-white/20 placeholder-white/15 transition-colors"
                   />
                   {jsonError && (
-                    <p className="text-red-400 text-xs bg-red-900/20 border border-red-800 rounded p-2 flex-shrink-0">
-                      {jsonError}
-                    </p>
+                    <p className="text-xs text-red-400 bg-red-900/20 px-3 py-2 rounded-lg border border-red-800/30">{jsonError}</p>
                   )}
                   <button
                     onClick={handleJsonSubmit}
                     disabled={jsonLoading || !jsonInput.trim()}
-                    className={`py-2 rounded-lg text-sm font-semibold transition-colors flex-shrink-0 ${jsonLoading || !jsonInput.trim()
-                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                        : 'bg-purple-600 text-white hover:bg-purple-500'
+                    className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${jsonLoading || !jsonInput.trim()
+                        ? 'bg-white/[0.03] text-white/15 cursor-not-allowed'
+                        : 'bg-white text-[#050505] hover:bg-white/90'
                       }`}
                   >
-                    {jsonLoading ? 'Injecting...' : 'Inject JSON into Graph'}
+                    {jsonLoading ? 'Injecting...' : 'Inject into Graph'}
                   </button>
 
                   {/* Path Traversal lives in JSON tab */}
-                  <div className="border-t border-gray-800 pt-3 overflow-y-auto">
+                  <div className="border-t border-white/[0.06] px-4 py-4">
                     <PathFinder />
                   </div>
                 </div>
@@ -572,7 +565,7 @@ export default function KnowledgeGraphPage() {
   return (
     <Suspense fallback={
       <div className="w-full h-screen flex items-center justify-center bg-[#050505] text-white">
-        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-white/60 border-t-transparent rounded-full animate-spin"></div>
       </div>
     }>
       <DashboardContent />

@@ -101,7 +101,7 @@ export default function WorkspaceModal({ open, onClose, currentWorkspaceId }: Pr
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed top-16 right-4 z-50 w-[420px] bg-[#0f1623] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+            className="fixed top-16 right-4 z-50 w-[420px] bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
@@ -123,7 +123,7 @@ export default function WorkspaceModal({ open, onClose, currentWorkspaceId }: Pr
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Your Workspaces</p>
                 {loading ? (
                   <div className="flex justify-center py-4">
-                    <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : workspaces.length === 0 ? (
                   <p className="text-xs text-gray-600 italic">No workspaces yet — create one below.</p>
@@ -134,7 +134,7 @@ export default function WorkspaceModal({ open, onClose, currentWorkspaceId }: Pr
                         key={ws.workspaceId}
                         className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all cursor-pointer group ${
                           ws.workspaceId === currentWorkspaceId
-                            ? 'bg-purple-600/20 border-purple-500/40'
+                            ? 'bg-white/[0.06] border-white/20'
                             : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.05] hover:border-white/10'
                         }`}
                         onClick={() => { onClose(); router.push(`/dashboard?workspaceId=${ws.workspaceId}`); }}
@@ -146,7 +146,7 @@ export default function WorkspaceModal({ open, onClose, currentWorkspaceId }: Pr
                         <button
                           onClick={(e) => { e.stopPropagation(); copyCode(ws.inviteCode, ws.workspaceId); }}
                           title="Copy invite code"
-                          className="text-xs px-2 py-1 rounded-lg bg-white/5 hover:bg-purple-600/30 text-gray-400 hover:text-purple-300 border border-white/10 transition-all"
+                          className="text-xs px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 border border-white/10 transition-all"
                         >
                           {copiedId === ws.workspaceId ? '✓ Copied' : `#${ws.inviteCode}`}
                         </button>
@@ -168,12 +168,12 @@ export default function WorkspaceModal({ open, onClose, currentWorkspaceId }: Pr
                     placeholder="Workspace name"
                     value={newName}
                     onChange={e => { setNewName(e.target.value); setError(''); }}
-                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors"
+                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-white/30 transition-colors"
                   />
                   <button
                     type="submit"
                     disabled={!newName.trim()}
-                    className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors"
+                    className="bg-white hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm font-semibold text-[#050505] transition-colors"
                   >
                     Create
                   </button>
@@ -190,7 +190,7 @@ export default function WorkspaceModal({ open, onClose, currentWorkspaceId }: Pr
                     value={joinCode}
                     onChange={e => { setJoinCode(e.target.value.toUpperCase()); setError(''); }}
                     maxLength={6}
-                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors font-mono tracking-widest"
+                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-white/30 transition-colors font-mono tracking-widest"
                   />
                   <button
                     type="submit"
