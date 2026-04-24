@@ -47,10 +47,10 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       nodes: state.nodes.map((node) =>
         node.id === id
           ? {
-              ...node,
-              ...updates,
-              updatedAt: new Date().toISOString(),
-            }
+            ...node,
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          }
           : node
       ),
       version: state.version + 1,
@@ -113,7 +113,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
   applyRemoteUpdate: (message: RealtimeSyncMessage) => {
     const state = get();
-    
+
     if (message.type === "node_added") {
       const node = message.payload as GraphNode;
       if (!state.nodes.find((n) => n.id === node.id)) {

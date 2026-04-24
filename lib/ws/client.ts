@@ -19,7 +19,8 @@ interface SyncHandler {
 export function initializeWebSocket(
   url?: string,
   handlers: Partial<SyncHandler> = {},
-  userId?: string
+  userId?: string,
+  workspaceId?: string
 ): Socket {
   if (socket) {
     return socket;
@@ -37,8 +38,11 @@ export function initializeWebSocket(
     reconnectionDelayMax: 5000,
     reconnectionAttempts: 10,
     transports: ["websocket", "polling"],
-    // Pass userId so the server can identify and log this client
-    query: { userId: userId || "anonymous" },
+    // Pass userId and workspaceId so the server can route this client
+    query: { 
+      userId: userId || "anonymous",
+      workspaceId: workspaceId || "",
+    },
   });
 
   socket.on("connect", () => {

@@ -2,6 +2,7 @@
 
 export interface GraphNode {
   id: string;
+  workspaceId?: string;
   label: string;
   type: "Entity" | "Event" | "Location" | "Object" | "Organization" | "Topic" | "User" | "concept" | "definition" | "entity" | "relationship";
   description?: string;
@@ -14,6 +15,7 @@ export interface GraphNode {
 
 export interface GraphEdge {
   id: string;
+  workspaceId?: string;
   source: string;
   target: string;
   label: string;

@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { input, existingNodes = [] } = body;
+    const { input, existingNodes = [], workspaceId } = body;
 
     if (!input || typeof input !== 'string') {
       return NextResponse.json(
@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
 
     // Persist to database
     for (const node of result.nodes) {
+      if (workspaceId) node.workspaceId = workspaceId;
       try {
         await createNode(node);
       } catch (error) {
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     for (const edge of result.edges) {
+      if (workspaceId) edge.workspaceId = workspaceId;
       try {
         await createEdge(edge);
       } catch (error) {

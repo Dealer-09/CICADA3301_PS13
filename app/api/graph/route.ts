@@ -1,10 +1,13 @@
 import { getAllNodes, getAllEdges } from '@/lib/db/neo4j';
 import { NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const nodes = await getAllNodes();
-    const edges = await getAllEdges();
+    const { searchParams } = new URL(req.url);
+    const workspaceId = searchParams.get('workspaceId') || undefined;
+
+    const nodes = await getAllNodes(workspaceId);
+    const edges = await getAllEdges(workspaceId);
 
     return NextResponse.json({
       nodes,

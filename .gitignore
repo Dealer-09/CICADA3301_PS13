@@ -58,3 +58,6 @@ SETUP_GUIDE.md
 
 # Local environment files
 .env.local
+
+# clerk configuration (can include secrets)
+/.clerk/

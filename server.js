@@ -8,7 +8,8 @@ const { Server } = require('socket.io');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
-const port = parseInt(process.env.PORT || '3000', 10);
+const port = parseInt(process.env.PORT || '3001', 10);
+console.log(port)
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -39,62 +40,81 @@ app.prepare().then(() => {
 
   io.on('connection', (socket) => {
     const userId = socket.handshake.query.userId || `user-${socket.id.slice(0, 6)}`;
-    connectedUsers.set(socket.id, { userId, connectedAt: new Date().toISOString() });
+    const workspaceId = socket.handshake.query.workspaceId;
 
-    console.log(`[Socket.io] Connected: ${userId} (${socket.id}) — ${connectedUsers.size} users online`);
+    if (!workspaceId) {
+      console.log(`[Socket.io] Rejected connection without workspaceId from ${userId}`);
+      socket.disconnect();
+      return;
+    }
 
-    // Broadcast updated user count to all clients
-    io.emit('users_online', connectedUsers.size);
+    // Check room size
+    const room = io.sockets.adapter.rooms.get(workspaceId);
+    if (room && room.size >= 4) {
+      console.log(`[Socket.io] Workspace ${workspaceId} is full. Rejected ${userId}`);
+      socket.emit('error', 'Workspace is full (max 4 users)');
+      socket.disconnect();
+      return;
+    }
+
+    socket.join(workspaceId);
+    connectedUsers.set(socket.id, { userId, workspaceId, connectedAt: new Date().toISOString() });
+
+    console.log(`[Socket.io] ${userId} joined workspace ${workspaceId}.`);
+
+    // Broadcast updated user count to all clients in the room
+    const currentRoom = io.sockets.adapter.rooms.get(workspaceId);
+    io.to(workspaceId).emit('users_online', currentRoom ? currentRoom.size : 0);
 
     // ── Node events ─────────────────────────────────────────────────────────
     socket.on('node_update', (node) => {
-      // Broadcast to all OTHER connected clients
-      socket.broadcast.emit('node_update', node);
-      console.log(`[Socket.io] node_update broadcast from ${userId}: ${node?.label}`);
+      socket.to(workspaceId).emit('node_update', node);
+      console.log(`[Socket.io] node_update in ${workspaceId} by ${userId}: ${node?.label}`);
     });
 
     socket.on('node_added', (node) => {
-      socket.broadcast.emit('node_added', node);
-      console.log(`[Socket.io] node_added broadcast from ${userId}: ${node?.label}`);
+      socket.to(workspaceId).emit('node_added', node);
+      console.log(`[Socket.io] node_added in ${workspaceId} by ${userId}: ${node?.label}`);
     });
 
     socket.on('node_removed', (nodeId) => {
-      socket.broadcast.emit('node_removed', nodeId);
-      console.log(`[Socket.io] node_removed broadcast from ${userId}: ${nodeId}`);
+      socket.to(workspaceId).emit('node_removed', nodeId);
+      console.log(`[Socket.io] node_removed in ${workspaceId} by ${userId}: ${nodeId}`);
     });
 
     // ── Edge events ─────────────────────────────────────────────────────────
     socket.on('edge_update', (edge) => {
-      socket.broadcast.emit('edge_update', edge);
-      console.log(`[Socket.io] edge_update broadcast from ${userId}: ${edge?.id}`);
+      socket.to(workspaceId).emit('edge_update', edge);
+      console.log(`[Socket.io] edge_update in ${workspaceId} by ${userId}: ${edge?.id}`);
     });
 
     socket.on('edge_added', (edge) => {
-      socket.broadcast.emit('edge_added', edge);
-      console.log(`[Socket.io] edge_added broadcast from ${userId}: ${edge?.id}`);
+      socket.to(workspaceId).emit('edge_added', edge);
+      console.log(`[Socket.io] edge_added in ${workspaceId} by ${userId}: ${edge?.id}`);
     });
 
     socket.on('edge_removed', (edgeId) => {
-      socket.broadcast.emit('edge_removed', edgeId);
-      console.log(`[Socket.io] edge_removed broadcast from ${userId}: ${edgeId}`);
+      socket.to(workspaceId).emit('edge_removed', edgeId);
+      console.log(`[Socket.io] edge_removed in ${workspaceId} by ${userId}: ${edgeId}`);
     });
 
     // ── Generic sync message (for conflict_detected, etc.) ──────────────────
     socket.on('sync_message', (message) => {
-      socket.broadcast.emit('sync_message', message);
-      console.log(`[Socket.io] sync_message broadcast: ${message?.type}`);
+      socket.to(workspaceId).emit('sync_message', message);
+      console.log(`[Socket.io] sync_message in ${workspaceId}: ${message?.type}`);
     });
 
     // ── Cursor / presence (bonus: show who is online) ───────────────────────
     socket.on('cursor_move', (data) => {
-      socket.broadcast.emit('cursor_move', { ...data, userId });
+      socket.to(workspaceId).emit('cursor_move', { ...data, userId });
     });
 
     // ── Disconnect ──────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       connectedUsers.delete(socket.id);
-      io.emit('users_online', connectedUsers.size);
-      console.log(`[Socket.io] Disconnected: ${userId} — ${connectedUsers.size} users online`);
+      const currentRoom = io.sockets.adapter.rooms.get(workspaceId);
+      io.to(workspaceId).emit('users_online', currentRoom ? currentRoom.size : 0);
+      console.log(`[Socket.io] Disconnected: ${userId} from ${workspaceId}`);
     });
   });
 

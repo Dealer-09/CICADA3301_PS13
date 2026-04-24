@@ -6,7 +6,7 @@ let driver: Driver | null = null;
 
 const DB_CONFIG = {
   maxConnectionPoolSize: 50,
-  maxConnectionLifetime: 60 * 60 * 1000, // 1 hour
+  maxConnectionLifetime: 60 * 60 * 1000,
 };
 
 export function initializeDatabase(): Driver {
@@ -110,6 +110,7 @@ export async function createNode(node: GraphNode): Promise<GraphNode> {
     await session.run(
       `CREATE (n:GraphNode {
         id: $id,
+        workspaceId: $workspaceId,
         label: $label,
         type: $type,
         description: $description,
@@ -121,6 +122,7 @@ export async function createNode(node: GraphNode): Promise<GraphNode> {
       })`,
       {
         id: node.id,
+        workspaceId: node.workspaceId || null,
         label: node.label,
         type: node.type,
         description: node.description || null,
@@ -215,6 +217,7 @@ export async function createEdge(edge: GraphEdge): Promise<GraphEdge> {
        MATCH (target:GraphNode {id: $targetId})
        CREATE (source)-[r:RELATES_TO {
          id: $id,
+         workspaceId: $workspaceId,
          label: $label,
          type: $type,
          weight: $weight,
@@ -226,6 +229,7 @@ export async function createEdge(edge: GraphEdge): Promise<GraphEdge> {
        }]->(target)`,
       {
         id: edge.id,
+        workspaceId: edge.workspaceId || null,
         sourceId: edge.source,
         targetId: edge.target,
         label: edge.label,
@@ -263,21 +267,24 @@ export async function deleteEdge(edgeId: string): Promise<boolean> {
 export async function findPath(
   sourceId: string,
   targetId: string,
-  maxDepth: number = 5
+  maxDepth: number = 5,
+  workspaceId?: string
 ): Promise<PathSearchResult | null> {
   const db = getDatabase();
   const session = db.session();
 
   try {
+    const workspaceFilter = workspaceId ? 'AND source.workspaceId = $workspaceId AND target.workspaceId = $workspaceId' : '';
     const result = await session.run(
       `MATCH path = shortestPath(
         (source:GraphNode {id: $sourceId})-[*1..$maxDepth]->(target:GraphNode {id: $targetId})
       )
+      WHERE 1=1 ${workspaceFilter}
       RETURN path, 
              length(path) as distance,
              [node in nodes(path) | node.id] as nodeIds,
              avg([rel in relationships(path) | rel.confidence]) as confidence`,
-      { sourceId, targetId, maxDepth }
+      { sourceId, targetId, maxDepth, workspaceId }
     );
 
     if (result.records.length === 0) return null;
@@ -318,12 +325,15 @@ async function getEdgesForPath(nodeIds: string[]): Promise<GraphEdge[]> {
   }
 }
 
-export async function getAllNodes(): Promise<GraphNode[]> {
+export async function getAllNodes(workspaceId?: string): Promise<GraphNode[]> {
   const db = getDatabase();
   const session = db.session();
 
   try {
-    const result = await session.run(`MATCH (n:GraphNode) RETURN n`);
+    const query = workspaceId 
+      ? `MATCH (n:GraphNode {workspaceId: $workspaceId}) RETURN n`
+      : `MATCH (n:GraphNode) RETURN n`;
+    const result = await session.run(query, { workspaceId });
     return result.records.map((record) =>
       deserializeNode(record.get("n").properties)
     );
@@ -332,12 +342,15 @@ export async function getAllNodes(): Promise<GraphNode[]> {
   }
 }
 
-export async function getAllEdges(): Promise<GraphEdge[]> {
+export async function getAllEdges(workspaceId?: string): Promise<GraphEdge[]> {
   const db = getDatabase();
   const session = db.session();
 
   try {
-    const result = await session.run(`MATCH ()-[r:RELATES_TO]->() RETURN r`);
+    const query = workspaceId 
+      ? `MATCH ()-[r:RELATES_TO {workspaceId: $workspaceId}]->() RETURN r`
+      : `MATCH ()-[r:RELATES_TO]->() RETURN r`;
+    const result = await session.run(query, { workspaceId });
     return result.records.map((record) =>
       deserializeEdge(record.get("r").properties)
     );

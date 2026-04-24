@@ -1,394 +1,132 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState, useRef } from 'react';
-import { useGraphStore } from '@/store/graphStore';
-import { initializeWebSocket } from '@/lib/ws/client';
-import NodeDetails from '@/components/NodeDetails';
-import PathFinder from '@/components/PathFinder';
-import { motion, AnimatePresence } from 'framer-motion';
-import { emitNodeAdded, emitEdgeAdded } from '@/lib/ws/client';
-import { ExtractionResult } from '@/types/graph';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
 
-const ForceGraphCanvas = dynamic(() => import('@/components/ForceGraphCanvas'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-[#111827] animate-pulse">
-      <div className="relative w-24 h-24 mb-6">
-        <div className="absolute inset-0 border-4 border-indigo-200 rounded-full"></div>
-        <div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-2xl">🧠</span>
-        </div>
-      </div>
-      <p className="text-indigo-300 font-bold text-lg tracking-wide">Initializing Neural Graph...</p>
-      <p className="text-indigo-500 text-sm mt-2">Syncing with Neo4j database</p>
-    </div>
-  ),
-});
-
-interface ThreadMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  addedToGraph: boolean;
-  timestamp: Date;
-}
-
-export default function KnowledgeGraphPage() {
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [usersOnline, setUsersOnline] = useState(1);
-  const [wsConnected, setWsConnected] = useState(false);
-  const [activeTab, setActiveTab] = useState<'threads' | 'json'>('threads');
-
-  // Threads tab state
-  const [threadMessages, setThreadMessages] = useState<ThreadMessage[]>([]);
-  const [threadInput, setThreadInput] = useState('');
-  const [threadLoading, setThreadLoading] = useState(false);
-  const threadEndRef = useRef<HTMLDivElement>(null);
-
-  // JSON tab state
-  const [jsonInput, setJsonInput] = useState('');
-  const [jsonError, setJsonError] = useState<string | null>(null);
-  const [jsonLoading, setJsonLoading] = useState(false);
-
-  const { nodes, edges, setGraphState, applyRemoteUpdate, addNode, addEdge, clear: clearGraph } = useGraphStore();
-  const stats = useMemo(
-    () => ({ nodeCount: nodes.length, edgeCount: edges.length }),
-    [nodes.length, edges.length]
-  );
-
-  // Auto-scroll threads to bottom
-  useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [threadMessages]);
-
-  useEffect(() => {
-    const userId =
-      (typeof window !== 'undefined' && sessionStorage.getItem('knowledgeUserId')) ||
-      `user-${Math.random().toString(36).slice(2, 8)}`;
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('knowledgeUserId', userId);
-    }
-
-    initializeWebSocket(
-      undefined,
-      {
-        onConnect: () => {
-          setWsConnected(true);
-          fetch('/api/graph')
-            .then((res) => res.json())
-            .then((data) => { setGraphState(data); })
-            .catch((error) => console.error('Failed to load graph:', error));
-        },
-        onDisconnect: () => { setWsConnected(false); },
-        onNodeUpdate: (node) => { applyRemoteUpdate({ type: 'node_updated', payload: node, timestamp: new Date().toISOString(), userId: 'remote' }); },
-        onNodeAdded: (node) => { applyRemoteUpdate({ type: 'node_added', payload: node, timestamp: new Date().toISOString(), userId: 'remote' }); },
-        onNodeRemoved: (nodeId) => { applyRemoteUpdate({ type: 'node_removed', payload: nodeId, timestamp: new Date().toISOString(), userId: 'remote' }); },
-        onEdgeUpdate: (edge) => { applyRemoteUpdate({ type: 'edge_updated', payload: edge, timestamp: new Date().toISOString(), userId: 'remote' }); },
-        onEdgeAdded: (edge) => { applyRemoteUpdate({ type: 'edge_added', payload: edge, timestamp: new Date().toISOString(), userId: 'remote' }); },
-        onEdgeRemoved: (edgeId) => { applyRemoteUpdate({ type: 'edge_removed', payload: edgeId, timestamp: new Date().toISOString(), userId: 'remote' }); },
-        onRemoteMessage: (message) => { applyRemoteUpdate(message); },
-        onUsersOnline: (count) => { setUsersOnline(count); },
-      },
-      userId
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // THREADS: Extract from natural language → show as chat bubbles
-  const handleThreadSubmit = async () => {
-    if (!threadInput.trim() || threadLoading) return;
-    const userText = threadInput.trim();
-    setThreadInput('');
-    setThreadLoading(true);
-
-    const userMsg: ThreadMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: userText,
-      addedToGraph: false,
-      timestamp: new Date(),
-    };
-    setThreadMessages((prev) => [...prev, userMsg]);
-
-    try {
-      const response = await fetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: userText, existingNodes: nodes }),
-      });
-
-      if (!response.ok) throw new Error('Extraction failed');
-      const result = (await response.json()) as ExtractionResult;
-      const added = result.nodes.length > 0 || result.edges.length > 0;
-
-      result.nodes.forEach((n) => { addNode(n); emitNodeAdded(n); });
-      result.edges.forEach((e) => { addEdge(e); emitEdgeAdded(e); });
-
-      setThreadMessages((prev) =>
-        prev.map((m) => (m.id === userMsg.id ? { ...m, addedToGraph: added } : m))
-      );
-
-      if (!added) {
-        setThreadMessages((prev) => [...prev, {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: 'No new entities found in this message.',
-          addedToGraph: false,
-          timestamp: new Date(),
-        }]);
-      }
-    } catch {
-      setThreadMessages((prev) => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: 'Failed to extract entities. Please try again.',
-        addedToGraph: false,
-        timestamp: new Date(),
-      }]);
-    } finally {
-      setThreadLoading(false);
-    }
-  };
-
-  // JSON: Parse raw JSON and inject directly into graph
-  const handleJsonSubmit = async () => {
-    setJsonError(null);
-    setJsonLoading(true);
-    try {
-      const parsed = JSON.parse(jsonInput);
-      const nodesIn = Array.isArray(parsed.nodes) ? parsed.nodes : [];
-      const edgesIn = Array.isArray(parsed.edges) ? parsed.edges : [];
-      if (nodesIn.length === 0 && edgesIn.length === 0) {
-        throw new Error('JSON must contain "nodes" or "edges" arrays.');
-      }
-      nodesIn.forEach((n: any) => { addNode(n); emitNodeAdded(n); });
-      edgesIn.forEach((e: any) => { addEdge(e); emitEdgeAdded(e); });
-      setJsonInput('');
-    } catch (e: any) {
-      setJsonError(e.message || 'Invalid JSON');
-    } finally {
-      setJsonLoading(false);
-    }
-  };
-
-  const handleResetGraph = async () => {
-    if (!confirm('Wipe entire graph? Cannot be undone.')) return;
-    await fetch('/api/graph/reset', { method: 'POST' });
-    clearGraph();
-    setThreadMessages([]);
-  };
-
+export default function LandingPage() {
   return (
-    <div className="h-screen flex flex-col bg-[#0b101e] text-gray-200 overflow-hidden font-sans">
-      {/* Header */}
-      <header className="flex-none border-b border-gray-800 bg-[#111827]">
-        <div className="px-6 py-3 flex items-center justify-between">
-          <motion.h1
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent"
-          >
-            🧠 Synapse Knowledge Graph Engine
-          </motion.h1>
+    <div className="min-h-screen bg-[#050505] text-white selection:bg-purple-500/30 selection:text-white overflow-hidden">
+      {/* Subtle background noise/gradient */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
+      <div className="fixed inset-0 bg-gradient-to-tr from-purple-900/10 via-transparent to-indigo-900/10 pointer-events-none z-0"></div>
 
-          <div className="flex gap-3 items-center">
-            <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
-              <p className="text-sm text-emerald-200">
-                <span className="font-bold">{usersOnline}</span> {usersOnline === 1 ? 'user' : 'users'} online
+      {/* Navigation */}
+      <nav className="relative z-10 flex items-center justify-between px-8 py-6 md:px-16 lg:px-24">
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="flex items-center gap-2"
+        >
+          <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+            <span className="text-[#050505] text-lg font-bold leading-none">S</span>
+          </div>
+          <span className="text-xl font-bold tracking-tight uppercase letter-spacing-widest">Synapse</span>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+          className="flex items-center gap-8"
+        >
+          <Link href="/dashboard" className="text-sm font-medium text-white/60 hover:text-white transition-colors">
+            Get Started
+          </Link>
+          <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
+          <button className="hidden sm:block text-sm font-semibold px-5 py-2 border border-white/10 rounded-full hover:bg-white hover:text-[#050505] transition-all duration-300">
+            Contact
+          </button>
+        </motion.div>
+      </nav>
+
+      {/* Hero Section */}
+      <main className="relative z-10 flex flex-col items-center justify-center pt-24 pb-32 px-8 md:px-16 lg:px-24">
+        <div className="max-w-4xl w-full text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.95] mb-8">
+              Knowledge <br />
+              <span className="text-white/40 italic font-serif serif">Evolved.</span>
+            </h1>
+          </motion.div>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto mb-12 leading-relaxed"
+          >
+            A state-of-the-art AI extraction engine that transforms unstructured natural language into persistent, navigable knowledge graphs in real-time.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-6"
+          >
+            <Link 
+              href="/dashboard"
+              className="group relative px-8 py-4 bg-white text-[#050505] font-bold rounded-full overflow-hidden transition-all duration-500 hover:pr-12"
+            >
+              <span className="relative z-10">Enter Dashboard</span>
+              <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 opacity-0 group-hover:opacity-100 transition-all duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </Link>
+            <button className="px-8 py-4 text-white/60 hover:text-white font-semibold transition-colors">
+              Read Documentation →
+            </button>
+          </motion.div>
+        </div>
+
+        {/* Feature Grid - Minimalist */}
+        <motion.div 
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 1, delay: 0.6 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-48 w-full max-w-6xl"
+        >
+          {[
+            {
+              title: "Real-time Extraction",
+              desc: "Powered by Llama-3, Synapse extracts complex entities and relationships as you type."
+            },
+            {
+              title: "Neo4j Persistence",
+              desc: "Industrial-grade graph storage ensuring your data is structured, searchable, and scaleable."
+            },
+            {
+              title: "Collaborative Intelligence",
+              desc: "Sync your research with teams in real-time via high-performance WebSocket channels."
+            }
+          ].map((feature, i) => (
+            <div key={i} className="group p-8 rounded-3xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-500">
+              <h3 className="text-xl font-bold mb-4">{feature.title}</h3>
+              <p className="text-white/40 text-sm leading-relaxed group-hover:text-white/60 transition-colors">
+                {feature.desc}
               </p>
             </div>
-            <div className="px-3 py-1.5 rounded-lg bg-gray-800/50 border border-gray-700 text-sm text-gray-300">
-              <span className="font-bold text-white">{stats.nodeCount}</span> Concepts
-            </div>
-            <div className="px-3 py-1.5 rounded-lg bg-gray-800/50 border border-gray-700 text-sm text-gray-300">
-              <span className="font-bold text-white">{stats.edgeCount}</span> Relationships
-            </div>
+          ))}
+        </motion.div>
+      </main>
+
+      {/* Footer */}
+      <footer className="relative z-10 py-16 px-8 md:px-16 lg:px-24 border-t border-white/5 mt-24">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+          <p className="text-xs text-white/30 uppercase tracking-[0.2em]">© 2024 Synapse Engine — CICADA3301 Project</p>
+          <div className="flex gap-8">
+            <a href="#" className="text-xs text-white/30 hover:text-white transition-colors uppercase tracking-[0.1em]">Twitter</a>
+            <a href="#" className="text-xs text-white/30 hover:text-white transition-colors uppercase tracking-[0.1em]">Github</a>
+            <a href="#" className="text-xs text-white/30 hover:text-white transition-colors uppercase tracking-[0.1em]">Privacy</a>
           </div>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-1 flex overflow-hidden">
-        {/* Graph Canvas (left, takes 2.5x space) */}
-        <div className="flex-[2.5] relative border-r border-gray-800">
-          <ForceGraphCanvas onNodeSelect={setSelectedNodeId} />
-        </div>
-
-        {/* Right Panel */}
-        <div className="flex-1 flex flex-col bg-[#111827] min-w-0">
-          {selectedNodeId ? (
-            <div className="p-4 flex-1 overflow-y-auto">
-              <NodeDetails nodeId={selectedNodeId} onClose={() => setSelectedNodeId(null)} />
-            </div>
-          ) : (
-            <>
-              {/* Tab Bar */}
-              <div className="flex items-center gap-1 px-4 pt-3 pb-0 border-b border-gray-800 flex-shrink-0">
-                <button
-                  onClick={() => setActiveTab('threads')}
-                  className={`px-4 py-2 text-sm font-semibold transition-colors ${
-                    activeTab === 'threads'
-                      ? 'text-white border-b-2 border-purple-400'
-                      : 'text-gray-500 hover:text-gray-300'
-                  }`}
-                >
-                  Threads
-                </button>
-                <button
-                  onClick={() => setActiveTab('json')}
-                  className={`px-4 py-2 text-sm font-semibold transition-colors ${
-                    activeTab === 'json'
-                      ? 'text-purple-400 border-b-2 border-purple-400'
-                      : 'text-gray-500 hover:text-gray-300'
-                  }`}
-                >
-                  JSON
-                </button>
-                <div className="ml-auto mb-1">
-                  <button
-                    onClick={handleResetGraph}
-                    title="Clear Graph"
-                    className="text-gray-600 hover:text-red-400 transition p-1"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* ── THREADS TAB ── */}
-              {activeTab === 'threads' && (
-                <div className="flex flex-col flex-1 overflow-hidden">
-                  {/* Message Feed */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {threadMessages.length === 0 && (
-                      <div className="text-center text-gray-600 text-sm mt-12">
-                        <p className="text-2xl mb-3">💬</p>
-                        <p className="font-medium text-gray-500">Start a conversation</p>
-                        <p className="mt-1">Type natural language below — entities and relationships will be extracted into the graph automatically.</p>
-                      </div>
-                    )}
-                    <AnimatePresence>
-                      {threadMessages.map((msg) => (
-                        <motion.div
-                          key={msg.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
-                        >
-                          {msg.role === 'assistant' && (
-                            <span className="text-xs text-gray-500 mb-1 ml-1">Assistant</span>
-                          )}
-                          <div
-                            className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                              msg.role === 'user'
-                                ? 'bg-purple-600 text-white rounded-br-sm'
-                                : 'bg-[#1f2937] text-gray-300 rounded-bl-sm'
-                            }`}
-                          >
-                            {msg.content}
-                          </div>
-                          {msg.role === 'user' && (
-                            <span className={`text-xs mt-1 mr-1 ${msg.addedToGraph ? 'text-emerald-400' : 'text-gray-600'}`}>
-                              {msg.addedToGraph ? '✓ Added to graph' : '— Skipped adding to graph'}
-                            </span>
-                          )}
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                    {threadLoading && (
-                      <div className="flex justify-start pl-1">
-                        <div className="bg-[#1f2937] rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5">
-                          <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                          <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                          <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                        </div>
-                      </div>
-                    )}
-                    <div ref={threadEndRef} />
-                  </div>
-
-                  {/* Thread Input Bar */}
-                  <div className="p-3 border-t border-gray-800 flex-shrink-0">
-                    <div className="flex items-center gap-2 bg-[#1f2937] border border-gray-700 rounded-xl px-3 py-2 focus-within:border-purple-500 transition-colors">
-                      <input
-                        type="text"
-                        value={threadInput}
-                        onChange={(e) => setThreadInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleThreadSubmit();
-                          }
-                        }}
-                        disabled={threadLoading}
-                        placeholder="Enter your message content here..."
-                        className="flex-1 bg-transparent text-gray-200 placeholder-gray-500 focus:outline-none text-sm py-1"
-                      />
-                      <button
-                        onClick={handleThreadSubmit}
-                        disabled={threadLoading || !threadInput.trim()}
-                        className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
-                          threadLoading || !threadInput.trim()
-                            ? 'text-gray-600 cursor-not-allowed'
-                            : 'bg-purple-600 text-white hover:bg-purple-500'
-                        }`}
-                      >
-                        <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── JSON TAB ── */}
-              {activeTab === 'json' && (
-                <div className="flex flex-col flex-1 overflow-hidden p-4 gap-3">
-                  <p className="text-xs text-gray-500 flex-shrink-0">
-                    Paste raw JSON with{' '}
-                    <code className="text-purple-400">nodes</code> and{' '}
-                    <code className="text-purple-400">edges</code> arrays to inject directly into the graph.
-                  </p>
-                  <textarea
-                    value={jsonInput}
-                    onChange={(e) => { setJsonInput(e.target.value); setJsonError(null); }}
-                    placeholder={`{\n  "nodes": [\n    { "id": "1", "label": "Sun", "type": "Object", "description": "A star" }\n  ],\n  "edges": [\n    { "source": "1", "target": "2", "label": "ORBITS", "type": "relates_to" }\n  ]\n}`}
-                    className="flex-1 bg-[#1f2937] border border-gray-700 text-gray-200 text-xs font-mono rounded-lg p-3 focus:outline-none focus:border-purple-500 resize-none placeholder-gray-600 min-h-0"
-                    spellCheck={false}
-                  />
-                  {jsonError && (
-                    <p className="text-red-400 text-xs bg-red-900/20 border border-red-800 rounded p-2 flex-shrink-0">
-                      {jsonError}
-                    </p>
-                  )}
-                  <button
-                    onClick={handleJsonSubmit}
-                    disabled={jsonLoading || !jsonInput.trim()}
-                    className={`py-2 rounded-lg text-sm font-semibold transition-colors flex-shrink-0 ${
-                      jsonLoading || !jsonInput.trim()
-                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                        : 'bg-purple-600 text-white hover:bg-purple-500'
-                    }`}
-                  >
-                    {jsonLoading ? 'Injecting...' : 'Inject JSON into Graph'}
-                  </button>
-
-                  {/* Path Traversal lives in JSON tab */}
-                  <div className="border-t border-gray-800 pt-3 overflow-y-auto">
-                    <PathFinder />
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </main>
+      </footer>
     </div>
   );
 }
