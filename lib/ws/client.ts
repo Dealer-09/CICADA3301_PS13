@@ -106,52 +106,10 @@ export function initializeWebSocket(
   return socket;
 }
 
-export function getWebSocket(): Socket | null {
-  return socket;
-}
-
 export function closeWebSocket(): void {
   if (socket) {
     socket.disconnect();
     socket = null;
-  }
-}
-
-export function emitNodeUpdate(node: GraphNode): void {
-  if (socket && socket.connected) {
-    socket.emit("node_update", node);
-  }
-}
-
-/** Use this when broadcasting a brand-new node (extraction result) */
-export function emitNodeAdded(node: GraphNode): void {
-  if (socket && socket.connected) {
-    socket.emit("node_added", node);
-  }
-}
-
-export function emitNodeRemoved(nodeId: string): void {
-  if (socket && socket.connected) {
-    socket.emit("node_removed", nodeId);
-  }
-}
-
-export function emitEdgeUpdate(edge: GraphEdge): void {
-  if (socket && socket.connected) {
-    socket.emit("edge_update", edge);
-  }
-}
-
-/** Use this when broadcasting a brand-new edge (extraction result or manual connect) */
-export function emitEdgeAdded(edge: GraphEdge): void {
-  if (socket && socket.connected) {
-    socket.emit("edge_added", edge);
-  }
-}
-
-export function emitEdgeRemoved(edgeId: string): void {
-  if (socket && socket.connected) {
-    socket.emit("edge_removed", edgeId);
   }
 }
 

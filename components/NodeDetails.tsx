@@ -4,14 +4,15 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useGraphStore } from '@/store/graphStore';
 import { GraphNode, SuggestionItem } from '@/types/graph';
 import { motion } from 'framer-motion';
-import { emitNodeAdded, emitEdgeAdded } from '@/lib/ws/client';
+import { emitSyncMessage } from '@/lib/ws/client';
 
 interface NodeDetailsProps {
   nodeId: string;
   onClose?: () => void;
+  workspaceId?: string | null;
 }
 
-const NodeDetails: React.FC<NodeDetailsProps> = ({ nodeId, onClose }) => {
+const NodeDetails: React.FC<NodeDetailsProps> = ({ nodeId, onClose, workspaceId }) => {
   const { nodes, getConnectedNodes, addNode, addEdge } = useGraphStore();
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -29,6 +30,7 @@ const NodeDetails: React.FC<NodeDetailsProps> = ({ nodeId, onClose }) => {
         body: JSON.stringify({
           nodeId: selectedNode.id,
           nodeLabel: selectedNode.label,
+          workspaceId: workspaceId || undefined,
         }),
       });
 
@@ -49,7 +51,7 @@ const NodeDetails: React.FC<NodeDetailsProps> = ({ nodeId, onClose }) => {
       const response = await fetch('/api/graph/suggestion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ suggestion }),
+        body: JSON.stringify({ suggestion, workspaceId: workspaceId || undefined }),
       });
 
       if (!response.ok) {
@@ -62,9 +64,8 @@ const NodeDetails: React.FC<NodeDetailsProps> = ({ nodeId, onClose }) => {
       addNode(node);
       addEdge(edge);
 
-      // Broadcast to others
-      emitNodeAdded(node);
-      emitEdgeAdded(edge);
+      // Broadcast via graph_refresh so all peers re-fetch
+      emitSyncMessage({ type: 'graph_refresh', payload: workspaceId || '', timestamp: new Date().toISOString(), userId: 'local' });
 
       // Remove the suggestion from the list
       setSuggestions((prev) => prev.filter((_, i) => i !== index));

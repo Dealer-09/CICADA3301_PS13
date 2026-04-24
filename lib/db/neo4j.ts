@@ -313,13 +313,18 @@ async function getEdgesForPath(nodeIds: string[]): Promise<GraphEdge[]> {
 
   try {
     const result = await session.run(
-      `MATCH (source:GraphNode)-[r:RELATES_TO]->(target:GraphNode)
-       WHERE source.id IN $nodeIds AND target.id IN $nodeIds
-       RETURN r`,
+      `MATCH (s:GraphNode)-[r:RELATES_TO]->(t:GraphNode)
+       WHERE s.id IN $nodeIds AND t.id IN $nodeIds
+       RETURN r, s.id as sourceId, t.id as targetId`,
       { nodeIds }
     );
 
-    return result.records.map((record) => deserializeEdge(record.get("r").properties));
+    return result.records.map((record) => {
+      const edge = deserializeEdge(record.get('r').properties);
+      edge.source = record.get('sourceId');
+      edge.target = record.get('targetId');
+      return edge;
+    });
   } finally {
     await session.close();
   }
@@ -347,13 +352,19 @@ export async function getAllEdges(workspaceId?: string): Promise<GraphEdge[]> {
   const session = db.session();
 
   try {
-    const query = workspaceId 
-      ? `MATCH ()-[r:RELATES_TO {workspaceId: $workspaceId}]->() RETURN r`
-      : `MATCH ()-[r:RELATES_TO]->() RETURN r`;
+    // We MUST explicitly return s.id and t.id — the relationship properties alone
+    // do not include source/target IDs (those are graph structure, not properties).
+    // Without this, fetching edges from Neo4j returns orphaned edges with no source/target.
+    const query = workspaceId
+      ? `MATCH (s:GraphNode)-[r:RELATES_TO {workspaceId: $workspaceId}]->(t:GraphNode) RETURN r, s.id as sourceId, t.id as targetId`
+      : `MATCH (s:GraphNode)-[r:RELATES_TO]->(t:GraphNode) RETURN r, s.id as sourceId, t.id as targetId`;
     const result = await session.run(query, { workspaceId });
-    return result.records.map((record) =>
-      deserializeEdge(record.get("r").properties)
-    );
+    return result.records.map((record) => {
+      const edge = deserializeEdge(record.get('r').properties);
+      edge.source = record.get('sourceId');
+      edge.target = record.get('targetId');
+      return edge;
+    });
   } finally {
     await session.close();
   }

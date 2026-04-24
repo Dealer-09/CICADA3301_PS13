@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useGraphStore } from '@/store/graphStore';
 import { PathSearchResult } from '@/types/graph';
 import { motion } from 'framer-motion';
 
 const PathFinder: React.FC = () => {
+  const searchParams = useSearchParams();
+  const workspaceId = searchParams.get('workspaceId');
   const { nodes, setHighlightedPath, clearHighlight } = useGraphStore();
   const [sourceId, setSourceId] = useState('');
   const [targetId, setTargetId] = useState('');
@@ -33,7 +36,7 @@ const PathFinder: React.FC = () => {
       const response = await fetch('/api/graph/path', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceId, targetId, maxDepth: 5 }),
+        body: JSON.stringify({ sourceId, targetId, maxDepth: 5, workspaceId: workspaceId || undefined }),
       });
 
       if (!response.ok) {

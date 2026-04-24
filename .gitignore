@@ -1,4 +1,3 @@
-Unknown/
 # Dependencies
 node_modules/
 .pnp
@@ -20,6 +19,8 @@ out/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Environment (secrets — never commit)
 .env
 .env.local
 .env.development.local
@@ -37,27 +38,18 @@ yarn-error.log*
 
 # OS
 Thumbs.db
-.DS_Store
-
-# Lock files (for monorepos or multiple package managers)
-bun.lock
 
 # Backup and temporary files
 *.bak
 *.old
 *_backup.*
-*~
 *.tmp
 app/page_old.tsx
-.vscode/launch.json
 
 # Documentation files (local only)
 PROJECT_SUMMARY.md
 QUICKSTART.md
 SETUP_GUIDE.md
 
-# Local environment files
-.env.local
-
-# clerk configuration (can include secrets)
+# Clerk configuration (can include secrets)
 /.clerk/

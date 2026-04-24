@@ -43,6 +43,41 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
   const nodes = rawNodes ?? [];
   const edges = rawEdges ?? [];
 
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // When search query changes, highlight matching nodes + their connections
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      clearHighlight();
+      return;
+    }
+    const q = searchQuery.toLowerCase();
+    const matched = nodes.filter(n => n.label.toLowerCase().includes(q));
+    if (matched.length === 0) { clearHighlight(); return; }
+
+    const matchedIds = new Set(matched.map(n => n.id));
+    const connectedEdges = edges.filter(e => {
+      const src = typeof e.source === 'object' ? (e.source as any).id : e.source;
+      const tgt = typeof e.target === 'object' ? (e.target as any).id : e.target;
+      return matchedIds.has(src) || matchedIds.has(tgt);
+    });
+    const neighborIds = new Set<string>(matchedIds);
+    connectedEdges.forEach(e => {
+      const src = typeof e.source === 'object' ? (e.source as any).id : e.source;
+      const tgt = typeof e.target === 'object' ? (e.target as any).id : e.target;
+      neighborIds.add(src); neighborIds.add(tgt);
+    });
+    setHighlightedPath(Array.from(neighborIds), connectedEdges.map(e => e.id));
+
+    // Zoom to first match
+    const first = matched[0] as any;
+    if (first?.x !== undefined && fgRef.current) {
+      fgRef.current.centerAt(first.x, first.y, 600);
+      fgRef.current.zoom(2.5, 700);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, nodes, edges]);
+
   // Resize observer to make graph responsive
   useEffect(() => {
     if (!containerRef.current) return;
@@ -264,7 +299,7 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
         }}
         onNodeClick={handleNodeClick}
         onLinkClick={handleLinkClick}
-        onBackgroundClick={() => clearHighlight()}
+        onBackgroundClick={() => { clearHighlight(); setSearchQuery(''); }}
         backgroundColor="#111827"
         onEngineStop={() => fgRef.current?.zoomToFit(400, 60)}
         nodeCanvasObject={(node: any, ctx, globalScale) => {
@@ -320,6 +355,26 @@ const ForceGraphCanvas: React.FC<ForceGraphCanvasProps> = ({ onNodeSelect, onEdg
           }
         }}
       />
+      {/* Search Bar */}
+      <div className="absolute top-4 right-4 z-10">
+        <div className="flex items-center gap-2 bg-[#1f2937]/90 backdrop-blur border border-gray-700 rounded-full px-4 py-2 shadow-lg">
+          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search graph..."
+            className="bg-transparent text-gray-200 text-sm placeholder-gray-500 outline-none w-36 focus:w-48 transition-all duration-300"
+          />
+          {searchQuery && (
+            <button onClick={() => { setSearchQuery(''); clearHighlight(); }} className="text-gray-500 hover:text-gray-300 transition-colors">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

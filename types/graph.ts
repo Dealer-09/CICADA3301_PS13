@@ -59,7 +59,7 @@ export interface SuggestionItem {
 }
 
 export interface RealtimeSyncMessage {
-  type: "node_added" | "node_updated" | "node_removed" | "edge_added" | "edge_updated" | "edge_removed" | "conflict_detected";
+  type: "node_added" | "node_updated" | "node_removed" | "edge_added" | "edge_updated" | "edge_removed" | "conflict_detected" | "graph_refresh";
   payload: GraphNode | GraphEdge | ConflictItem | string;
   timestamp: string;
   userId: string;

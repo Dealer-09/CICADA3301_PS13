@@ -9,7 +9,7 @@ import { initializeWebSocket } from '@/lib/ws/client';
 import NodeDetails from '@/components/NodeDetails';
 import PathFinder from '@/components/PathFinder';
 import { motion, AnimatePresence } from 'framer-motion';
-import { emitNodeAdded, emitEdgeAdded, closeWebSocket } from '@/lib/ws/client';
+import { emitSyncMessage, closeWebSocket } from '@/lib/ws/client';
 import { ExtractionResult } from '@/types/graph';
 import WorkspaceModal from '@/components/WorkspaceModal';
 
@@ -47,6 +47,7 @@ function DashboardContent() {
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<{id: string; source: string; target: string; label: string; type: string; confidence: number} | null>(null);
   const [usersOnline, setUsersOnline] = useState(1);
   const [wsConnected, setWsConnected] = useState(false);
   const [activeTab, setActiveTab] = useState<'threads' | 'json'>('threads');
@@ -99,15 +100,19 @@ function DashboardContent() {
     // Force-close any existing socket so the singleton re-initializes with the new workspaceId
     closeWebSocket();
 
+    const fetchGraph = () => {
+      fetch(`/api/graph?workspaceId=${workspaceId}`)
+        .then((res) => res.json())
+        .then((data) => { setGraphState(data); })
+        .catch((error) => console.error('Failed to load graph:', error));
+    };
+
     initializeWebSocket(
       undefined,
       {
         onConnect: () => {
           setWsConnected(true);
-          fetch(`/api/graph?workspaceId=${workspaceId}`)
-            .then((res) => res.json())
-            .then((data) => { setGraphState(data); })
-            .catch((error) => console.error('Failed to load graph:', error));
+          fetchGraph();
         },
         onDisconnect: () => { setWsConnected(false); },
         onNodeUpdate: (node) => { applyRemoteUpdate({ type: 'node_updated', payload: node, timestamp: new Date().toISOString(), userId: 'remote' }); },
@@ -116,7 +121,14 @@ function DashboardContent() {
         onEdgeUpdate: (edge) => { applyRemoteUpdate({ type: 'edge_updated', payload: edge, timestamp: new Date().toISOString(), userId: 'remote' }); },
         onEdgeAdded: (edge) => { applyRemoteUpdate({ type: 'edge_added', payload: edge, timestamp: new Date().toISOString(), userId: 'remote' }); },
         onEdgeRemoved: (edgeId) => { applyRemoteUpdate({ type: 'edge_removed', payload: edgeId, timestamp: new Date().toISOString(), userId: 'remote' }); },
-        onRemoteMessage: (message) => { applyRemoteUpdate(message); },
+        onRemoteMessage: (message) => {
+          if ((message as any).type === 'graph_refresh') {
+            // A peer extracted new data — re-fetch full ground truth from Neo4j
+            fetchGraph();
+          } else {
+            applyRemoteUpdate(message);
+          }
+        },
         onUsersOnline: (count) => { setUsersOnline(count); },
       },
       userId,
@@ -156,8 +168,15 @@ function DashboardContent() {
       const result = (await response.json()) as ExtractionResult;
       const added = result.nodes.length > 0 || result.edges.length > 0;
 
-      result.nodes.forEach((n) => { addNode(n); emitNodeAdded(n); });
-      result.edges.forEach((e) => { addEdge(e); emitEdgeAdded(e); });
+      // Update local store immediately for the extracting user
+      result.nodes.forEach((n) => { addNode(n); });
+      result.edges.forEach((e) => { addEdge(e); });
+
+      // Tell ALL peers (including this client via onRemoteMessage) to re-fetch from Neo4j
+      // This is the single source of truth sync — eliminates count divergence
+      if (added) {
+        emitSyncMessage({ type: 'graph_refresh', payload: workspaceId || '', timestamp: new Date().toISOString(), userId: user?.id || 'unknown' });
+      };
 
       setThreadMessages((prev) =>
         prev.map((m) => (m.id === userMsg.id ? { ...m, addedToGraph: added } : m))
@@ -185,7 +204,7 @@ function DashboardContent() {
     }
   };
 
-  // JSON: Parse raw JSON and inject directly into graph
+  // JSON: Parse raw JSON, persist to Neo4j, and sync via graph_refresh
   const handleJsonSubmit = async () => {
     setJsonError(null);
     setJsonLoading(true);
@@ -196,8 +215,51 @@ function DashboardContent() {
       if (nodesIn.length === 0 && edgesIn.length === 0) {
         throw new Error('JSON must contain "nodes" or "edges" arrays.');
       }
-      nodesIn.forEach((n: any) => { addNode(n); emitNodeAdded(n); });
-      edgesIn.forEach((e: any) => { addEdge(e); emitEdgeAdded(e); });
+
+      // Ensure each node/edge has required fields and stamp with workspaceId
+      const now = new Date().toISOString();
+      const userId = user?.id || 'anonymous';
+      const stampedNodes = nodesIn.map((n: any) => ({
+        id: n.id || crypto.randomUUID(),
+        label: n.label || 'Untitled',
+        type: n.type || 'Entity',
+        description: n.description || '',
+        confidence: n.confidence ?? 0.8,
+        createdAt: n.createdAt || now,
+        updatedAt: now,
+        createdBy: n.createdBy || userId,
+        metadata: n.metadata || {},
+        workspaceId: workspaceId || undefined,
+      }));
+      const stampedEdges = edgesIn.map((e: any) => ({
+        id: e.id || crypto.randomUUID(),
+        source: e.source,
+        target: e.target,
+        label: e.label || 'relates_to',
+        type: e.type || 'relates_to',
+        confidence: e.confidence ?? 0.8,
+        createdAt: e.createdAt || now,
+        updatedAt: now,
+        createdBy: e.createdBy || userId,
+        metadata: e.metadata || {},
+        workspaceId: workspaceId || undefined,
+      }));
+
+      // Persist to Neo4j via internal API
+      const res = await fetch('/api/graph/inject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodes: stampedNodes, edges: stampedEdges, workspaceId }),
+      });
+      if (!res.ok) throw new Error('Failed to persist JSON to database');
+
+      // Update local store
+      stampedNodes.forEach((n: any) => addNode(n));
+      stampedEdges.forEach((e: any) => addEdge(e));
+
+      // Sync all peers
+      emitSyncMessage({ type: 'graph_refresh', payload: workspaceId || '', timestamp: now, userId });
+
       setJsonInput('');
     } catch (e: any) {
       setJsonError(e.message || 'Invalid JSON');
@@ -269,14 +331,77 @@ function DashboardContent() {
       <main className="flex-1 flex overflow-hidden">
         {/* Graph Canvas (left, takes 2.5x space) */}
         <div className="flex-[2.5] relative border-r border-gray-800">
-          <ForceGraphCanvas onNodeSelect={setSelectedNodeId} />
+          <ForceGraphCanvas
+            onNodeSelect={(id) => { setSelectedNodeId(id); setSelectedEdge(null); }}
+            onEdgeSelect={(edgeId) => {
+              const edge = edges.find(e => e.id === edgeId);
+              if (edge) {
+                setSelectedEdge({
+                  id: edge.id,
+                  source: typeof edge.source === 'object' ? (edge.source as any).id : edge.source,
+                  target: typeof edge.target === 'object' ? (edge.target as any).id : edge.target,
+                  label: edge.label,
+                  type: edge.type,
+                  confidence: edge.confidence,
+                });
+                setSelectedNodeId(null);
+              }
+            }}
+          />
         </div>
 
         {/* Right Panel */}
         <div className="flex-1 flex flex-col bg-[#111827] min-w-0">
-          {selectedNodeId ? (
+          {selectedEdge ? (
             <div className="p-4 flex-1 overflow-y-auto">
-              <NodeDetails nodeId={selectedNodeId} onClose={() => setSelectedNodeId(null)} />
+              <div className="bg-[#1f2937] rounded-lg border border-gray-700 overflow-hidden">
+                <div className="bg-[#111827] px-5 py-4 flex justify-between items-center border-b border-gray-700">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Relationship</p>
+                    <h3 className="text-white font-bold text-sm">
+                      {nodes.find(n => n.id === selectedEdge.source)?.label || selectedEdge.source}
+                      <span className="mx-2 text-gray-500">→</span>
+                      {nodes.find(n => n.id === selectedEdge.target)?.label || selectedEdge.target}
+                    </h3>
+                  </div>
+                  <button onClick={() => setSelectedEdge(null)} className="p-1 hover:bg-gray-800 rounded-full transition-colors text-gray-400 hover:text-white">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase tracking-wide">
+                      {selectedEdge.label}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-700 text-gray-300 border border-gray-600">
+                      {selectedEdge.type}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500 uppercase tracking-wide">Confidence</span>
+                      <span className="text-sm font-bold text-white">{(selectedEdge.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-1.5">
+                      <div className="bg-gradient-to-r from-amber-400 to-amber-500 h-1.5 rounded-full" style={{width: `${selectedEdge.confidence * 100}%`}} />
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-gray-700 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-xs text-gray-500">Source</span>
+                      <span className="text-xs text-gray-300 font-mono">{nodes.find(n => n.id === selectedEdge.source)?.label || selectedEdge.source.slice(0,8)}...</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-xs text-gray-500">Target</span>
+                      <span className="text-xs text-gray-300 font-mono">{nodes.find(n => n.id === selectedEdge.target)?.label || selectedEdge.target.slice(0,8)}...</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : selectedNodeId ? (
+            <div className="p-4 flex-1 overflow-y-auto">
+              <NodeDetails nodeId={selectedNodeId} onClose={() => setSelectedNodeId(null)} workspaceId={workspaceId} />
             </div>
           ) : (
             <>
